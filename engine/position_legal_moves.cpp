@@ -82,6 +82,7 @@ std::vector<Move> Position::legal_moves()
     moves.insert( moves.end(), queen_moves.begin(),   queen_moves.end()   );
     moves.insert( moves.end(), king_moves.begin(),    king_moves.end()    );
     moves.insert( moves.end(), knight_moves.begin(),  knight_moves.end()  );
+	moves.insert( moves.end(), king_castling.begin(), king_castling.end() );
 
     // Now filter out all illegals due to check at the end.
 	Colour them = ~us;
@@ -99,9 +100,7 @@ std::vector<Move> Position::legal_moves()
 
     auto to_remove =  std::remove_if( moves.begin(), moves.end(), remove_condition);
     moves.erase(to_remove, moves.end());
-
-	moves.insert(moves.end(), king_castling.begin(), king_castling.end());
-
+	
     return moves;
 }
 
