@@ -41,7 +41,7 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 			else
 				promise += 100000;
 		}
-		
+
 		// === Unapply ===
 		position.unapply(move);
 		moves.insert( { -promise, move } );
@@ -54,7 +54,7 @@ int MoveSelector::see(Position &pos, MoveTiny move)
 	
 	// Get smallest attacker capture
 	auto next_moves = pos.legal_moves();
-	auto remove_condition = [pos](MoveTiny m){ return pos.is_capture(m); };
+	auto remove_condition = [pos](MoveTiny m){ return pos.was_capture(m); };
 	auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
 	next_moves.erase(to_remove, next_moves.end());
 	

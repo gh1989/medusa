@@ -150,6 +150,21 @@ void Position::unapply(MoveTiny move)
 	tick_back();
 }
 
+bool Position::was_capture(MoveTiny move) const
+{
+	auto to_sqr = to(move);
+
+	// TODO: fix this awkwardness with squares getting.
+	auto to_sqr_bb = Bitboard::get_squares().data[to_sqr];
+	// TODO: fix this awkwardness for bitboard checking.
+	if ((to_sqr_bb & occupants(colour_to_move())).any())
+		return true;
+
+	if (special_move(move) == CAPTURE_ENPASSANT)
+		return true;
+	return false;
+}
+
 bool Position::is_capture(MoveTiny move) const
 {
 	auto to_sqr    = to(move);

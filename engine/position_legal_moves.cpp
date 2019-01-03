@@ -3,21 +3,55 @@
 #include <algorithm>
 #include <iostream>
 
-bool Position::any_legal_move()
+bool files_eq(Bitboard::Square x, Bitboard::Square y)
+{
+	return ((x % 8) == (y % 8));
+}
+
+bool ranks_eq(Bitboard::Square x, Bitboard::Square y)
+{
+	return ( (x / 8) == (y / 8));
+}
+
+bool diag_to(Bitboard::Square a, Bitboard::Square b)
+{
+	int dy = (a / 8) - (b / 8); 
+	int dx = (a % 8) - (b % 8);
+	if (dy*dx > 0)  
+		return dx == dy;
+	return false;
+}
+
+bool anti_diag_to(Bitboard::Square a, Bitboard::Square b)
+{
+	int dy = (a / 8) - (b / 8);
+	int dx = (a % 8) - (b % 8);
+	if (dy*dx < 0)
+		return abs(dx) == abs(dy);
+	return false;
+}
+
+Bitboard::Square square(Bitboard bitboard)
+{
+	return bitboard.bit_length();
+}
+
+std::vector<MoveTiny> Position::pseudo_legal_moves()
 {
 	Colour us = to_move;
-	auto rook_moves		= legal_slider_moves(us, Piece::ROOK, &Bitboard::rook_attacks);
-	auto bishop_moves	= legal_slider_moves(us, Piece::BISHOP, &Bitboard::bishop_attacks);
-	auto queen_moves	= legal_slider_moves(us, Piece::QUEEN, &Bitboard::queen_attacks);
-	auto knight_moves	= legal_jumper_moves(us, Piece::KNIGHT, Bitboard::get_knight_attacks());
-	auto king_moves		= legal_jumper_moves(us, Piece::KING, Bitboard::get_king_attacks());
-	auto pawn_moves		= legal_pawn_moves(us);
-	auto king_castling  = legal_castling_moves(us);
-
 	std::vector<MoveTiny> moves;
 
+	// Get all moves
+	auto rook_moves = legal_slider_moves(us, Piece::ROOK, &Bitboard::rook_attacks);
+	auto bishop_moves = legal_slider_moves(us, Piece::BISHOP, &Bitboard::bishop_attacks);
+	auto queen_moves = legal_slider_moves(us, Piece::QUEEN, &Bitboard::queen_attacks);
+	auto knight_moves = legal_jumper_moves(us, Piece::KNIGHT, Bitboard::get_knight_attacks());
+	auto king_moves = legal_jumper_moves(us, Piece::KING, Bitboard::get_king_attacks());
+	auto king_castling = legal_castling_moves(us);
+	auto pawn_moves = legal_pawn_moves(us);
+
 	// There are not going to be more than 64 legal moves in a standard game.
-	moves.reserve(64); 
+	moves.reserve(64);
 
 	// Insert them all at the end
 	moves.insert(moves.end(), pawn_moves.begin(), pawn_moves.end());
@@ -26,68 +60,86 @@ bool Position::any_legal_move()
 	moves.insert(moves.end(), queen_moves.begin(), queen_moves.end());
 	moves.insert(moves.end(), king_moves.begin(), king_moves.end());
 	moves.insert(moves.end(), knight_moves.begin(), knight_moves.end());
+	moves.insert(moves.end(), king_castling.begin(), king_castling.end());
 
-	Colour them = ~us;
-	auto is_not_check = [this, us, them](MoveTiny move)
-	{
-		apply(move);
-
-		auto king = this->bitboards.data[us.index()].data[Piece::KING];
-		bool is_check = this->is_square_attacked(king, them);
-
-		unapply(move);
-		return !is_check;
-	};
-
-	return std::any_of(moves.begin(), moves.end(), is_not_check);
+	return moves;
 }
 
 std::vector<MoveTiny> Position::legal_moves()
 {
+	auto psuedo_legal = pseudo_legal_moves();
+	auto pred = [this](MoveTiny move) {return this->is_illegal_move(move);  };
+	auto to_remove = std::remove_if(psuedo_legal.begin(), psuedo_legal.end(), pred);
+	psuedo_legal.erase(to_remove, psuedo_legal.end());
+	return psuedo_legal;
+}
+
+bool Position::any_legal_move()
+{
+	auto psuedo_legal = pseudo_legal_moves();
+	auto pred = [this](MoveTiny move){return !this->is_illegal_move(move);  };
+	return std::any_of(psuedo_legal.begin(), psuedo_legal.end(), pred);
+}
+
+bool Position::is_illegal_move(MoveTiny move)
+{
+	// Now filter out all illegals due to check at the end.
 	Colour us = to_move;
-    std::vector<MoveTiny> moves;
+	Colour them = ~to_move;
 
-    // Get all moves
-    auto rook_moves    = legal_slider_moves(us, Piece::ROOK, &Bitboard::rook_attacks);
-    auto bishop_moves  = legal_slider_moves(us, Piece::BISHOP, &Bitboard::bishop_attacks);
-    auto queen_moves   = legal_slider_moves(us, Piece::QUEEN, &Bitboard::queen_attacks);
-    auto knight_moves  = legal_jumper_moves(us, Piece::KNIGHT, Bitboard::get_knight_attacks());
-    auto king_moves    = legal_jumper_moves(us, Piece::KING, Bitboard::get_king_attacks());
-    auto king_castling = legal_castling_moves(us);
-    auto pawn_moves    = legal_pawn_moves(us);
+	auto king = this->get_piece_bitboard(us, Piece::KING);
+	bool check_discovered_check = false;
 
-	// There are not going to be more than 64 legal moves in a standard game.
-    moves.reserve(64);
+	auto their_rooks = this->get_piece_bitboard(them, Piece::ROOK);
+	auto their_queens = this->get_piece_bitboard(them, Piece::QUEEN);
+	auto their_bishops = this->get_piece_bitboard(them, Piece::BISHOP);
 
-    // Insert them all at the end
-    moves.insert( moves.end(), pawn_moves.begin(),    pawn_moves.end()    );
-    moves.insert( moves.end(), rook_moves.begin(),    rook_moves.end()    );
-    moves.insert( moves.end(), bishop_moves.begin(),  bishop_moves.end()  );
-    moves.insert( moves.end(), queen_moves.begin(),   queen_moves.end()   );
-    moves.insert( moves.end(), king_moves.begin(),    king_moves.end()    );
-    moves.insert( moves.end(), knight_moves.begin(),  knight_moves.end()  );
-	moves.insert( moves.end(), king_castling.begin(), king_castling.end() );
-
-    // Now filter out all illegals due to check at the end.
-	Colour them = ~us;
-	auto remove_condition = [this, us, them](MoveTiny move)
+	if (this->attacker(move) == Piece::KING)
+		check_discovered_check = true;
+	else
+	{
+		auto kingsq = square(king);
+		auto start = from(move);
+		auto finish = to(move);
+		if (files_eq(kingsq, start) && !files_eq(start, finish))
+		{
+			auto kingfile = Bitboard::get_file_mask(kingsq);
+			if (((their_rooks | their_queens) & kingfile ).any())
+				check_discovered_check = true;
+		}
+		else if (ranks_eq(kingsq, start) & !ranks_eq(start, finish))
+		{
+			auto kingrank = Bitboard::get_rank_mask(kingsq);
+			if (((their_rooks | their_queens) & kingrank).any())
+				check_discovered_check = true;
+		}
+		else if (diag_to(kingsq, start) & !diag_to(start, finish))
+		{
+			auto kingdiag = Bitboard::get_diag_mask(kingsq);
+			if (((their_bishops | their_queens) & kingdiag).any())
+			check_discovered_check = true;
+		}
+		else if (anti_diag_to(kingsq, start) & !anti_diag_to(start, finish))
+		{
+			auto kingadiag = Bitboard::get_anti_diag_mask(kingsq);
+			if (((their_bishops | their_queens) & kingadiag).any())
+			check_discovered_check = true;
+		}
+	}
+		
+	check_discovered_check = true;
+	if (check_discovered_check)
 	{
 		apply(move);
-
-		// Discovered check?
 		auto king = this->bitboards.data[us.index()].data[Piece::KING];
 		bool discovered_check = this->is_square_attacked(king, them);
-
 		unapply(move);
-
 		return discovered_check;
-    };
+	}
 
-    auto to_remove =  std::remove_if( moves.begin(), moves.end(), remove_condition);
-    moves.erase(to_remove, moves.end());
-	
-    return moves;
-}
+	return false;
+};
+
 
 std::vector<MoveTiny> Position::legal_jumper_moves(
     Colour colour,

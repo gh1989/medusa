@@ -79,6 +79,8 @@ public:
 
     Position reflect() const;
 
+	bool was_capture(MoveTiny move) const;
+
 	void move_piece(Colour colour, Piece piece, Bitboard::Square start, Bitboard::Square finish)
 	{
 		int index = colour.index();
@@ -203,6 +205,9 @@ public:
 		int index = colour.index();
 		return bitboards.data[index].data[piece];
 	}
+
+	std::vector<MoveTiny> pseudo_legal_moves();
+	bool is_illegal_move(MoveTiny move);
 
 	bool is_square_attacked(const Bitboard& square, Colour colour) const;
 	void set_colour(Colour colour) { to_move = colour; }

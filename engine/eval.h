@@ -8,14 +8,16 @@ const int KNIGHT_SCORE = 300;
 const int BISHOP_SCORE = 300;
 const int ROOK_SCORE   = 500;
 const int QUEEN_SCORE  = 900;
+const int KING_SCORE   = 10000000;
 
 const int values[Piece::NUMBER_PIECES]
 {
-	PAWN_SCORE,
 	KNIGHT_SCORE,
 	BISHOP_SCORE,
 	ROOK_SCORE,
-	QUEEN_SCORE
+	QUEEN_SCORE,
+	KING_SCORE,
+	PAWN_SCORE,
 };
 
 namespace Eval

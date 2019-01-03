@@ -19,5 +19,6 @@ int main()
 			break;
 		uci.process(command);
 	}
+
 	return 0;
 }
