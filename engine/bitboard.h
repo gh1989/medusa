@@ -23,8 +23,7 @@ public:
 		RANK_8,
 		NUMBER_RANKS
 	};
-
-
+	
 	enum File
 	{
 		A_FILE = 0,
@@ -199,11 +198,6 @@ public:
 		return b | s;
 	}
 
-	static Bitboard central_squares()
-	{
-		return Bitboard(0x3c3c3c3c0000);
-	}
-
 	static uint64_t rotate180(uint64_t x);
 
 	static std::string square_name(Bitboard::Square square)
@@ -221,21 +215,19 @@ public:
 
 	// Get diag masks
 	static w_array<Bitboard, NUMBER_SQUARES> get_diag_masks() { return _diag_masks;  }
-	//static Bitboard get_diag_mask(const Bitboard& square) { return Bitboard(get_diag_mask(square.bit_number)); }
 	static Bitboard get_diag_mask(Square square) {
 		return _diag_masks.data[square];
 	}
 
 	// Get anti diag masks
 	static w_array<Bitboard, NUMBER_SQUARES> get_anti_diag_masks() { return _anti_diag_masks; }
-	//static Bitboard get_anti_diag_mask(const Bitboard& square) { return Bitboard(get_anti_diag_mask(square.bit_number)); }
+
 	static Bitboard get_anti_diag_mask(Square square) {
 		return _anti_diag_masks.data[square];
 	}
 
 	// Get rank masks
 	static w_array<Bitboard, NUMBER_SQUARES> get_rank_masks() { return _rank_masks; }
-	//static uint64_t get_rank_mask(uint64_t square) { return get_rank_mask(Bitboard(square)).bit_number; }
 	static Bitboard get_rank_mask(Square square) 
 	{
 		return _rank_masks.data[square];
@@ -243,7 +235,6 @@ public:
 
 	// Get file masks
 	static w_array<Bitboard, NUMBER_SQUARES> get_file_masks() { return _file_masks; }
-	//static Bitboard get_file_mask(const Bitboard& square) { return Bitboard(get_file_mask(square.bit_number)); }
 	static Bitboard get_file_mask(Square square) {
 		return _file_masks.data[square];
 	}
@@ -280,10 +271,6 @@ public:
 		return ret;
 	}
 	#endif
-
-	w_array<int, Bitboard::NUMBER_SQUARES> to_pressure_matrix(int value = 1) const;
-
-    static w_array<int, NUMBER_SQUARES>  central_importance;
 	
 	// Get files, ranks, squares
 	static w_array<Bitboard, NUMBER_FILES> get_files() { return _files; }
@@ -298,10 +285,6 @@ public:
 	static w_array<Bitboard, NUMBER_SQUARES> _king_attacks;
 	static w_array<Bitboard, NUMBER_SQUARES> _pawn_attacks;
 	static w_array<Bitboard, NUMBER_SQUARES> _pawn_pushes;
-
-	static Bitboard rook_attacks(const Bitboard& occupancy, Square square);
-	static Bitboard bishop_attacks(const Bitboard& occupancy, Square square);
-	static Bitboard queen_attacks(const Bitboard& occupancy, Square square);
 
 	static w_array<Bitboard, NUMBER_SQUARES> _squares;
 	static w_array<Bitboard, NUMBER_FILES> _files;
@@ -338,23 +321,90 @@ public:
 	static Bitboard slider_attacks(
 		const Bitboard& occupancy,
 		Square square,
-		const Bitboard& direction_mask);
+		const Bitboard& direction_mask)
+	{
+		uint64_t potential_blockers = (occupancy & direction_mask).bit_number;
+		uint64_t diff = potential_blockers - 2 * _squares.data[square].bit_number;
+		uint64_t changed = diff ^ occupancy.bit_number;
+		return changed & direction_mask.bit_number;
+	}
 
 	static Bitboard diag_attacks(
 		const Bitboard& occupancy,
-		Square square);
+		Square square)
+	{
+		auto diag_mask = get_diag_mask(square);
+		auto forward_part = slider_attacks(occupancy, square, diag_mask);
+		auto sqr_bit_num = _squares.data[square].bit_number;
+		Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
+		uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
+		Square reversed_square = reversed_square_bitboard.bit_length();
+		auto anti_diag_mask_for_reversed = get_anti_diag_mask(reversed_square);
+		auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, anti_diag_mask_for_reversed);
+		return forward_part.bit_number | byteswap(reversed_part.bit_number);
+	}
 
 	static Bitboard antidiag_attacks(
 		const Bitboard& occupancy,
-		Square square);
+		Square square)
+	{
+		auto anti_diag_mask = get_anti_diag_mask(square);
+		auto forward_part = slider_attacks(occupancy, square, anti_diag_mask);
+		auto sqr_bit_num = _squares.data[square].bit_number;
+		Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
+		uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
+		Square reversed_square = reversed_square_bitboard.bit_length();
+		auto diag_mask_for_reversed = get_diag_mask(reversed_square);
+		auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, diag_mask_for_reversed);
+		return forward_part.bit_number | byteswap(reversed_part.bit_number);
+	}
 
 	static Bitboard file_attacks(
 		const Bitboard& occupancy,
-		Square square);
+		Square square)
+	{
+		auto file_mask = get_file_mask(square);
+		auto forward_part = slider_attacks(occupancy, square, file_mask);
+		auto sqr_bit_num = _squares.data[square].bit_number;
+		Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
+		uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
+		Square reversed_square = reversed_square_bitboard.bit_length();
+		auto file_mask_for_reversed = get_file_mask(reversed_square);
+		auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, file_mask_for_reversed);
+		return forward_part.bit_number | byteswap(reversed_part.bit_number);
+	}
 
 	static Bitboard rank_attacks(
 		const Bitboard& occupancy,
-		Square square);
+		Square square)
+	{
+		auto rank_mask = get_rank_mask(square);
+		auto forward_part = slider_attacks(occupancy, square, rank_mask);
+		auto sqr_bit_num = _squares.data[square].bit_number;
+		Bitboard rotated_square_bitboard = rotate180(sqr_bit_num);
+		uint64_t rotated_occupancy = rotate180(occupancy.bit_number);
+		Square rotated_square = rotated_square_bitboard.bit_length();
+		auto rank_mask_for_rotated = get_rank_mask(rotated_square);
+		auto rotated_part = slider_attacks(rotated_occupancy, rotated_square, rank_mask_for_rotated);
+		return forward_part.bit_number | rotate180(rotated_part.bit_number);
+	}
+	
+	static Bitboard rook_attacks(const Bitboard& occupancy, Square square)
+	{
+		uint64_t occupancy_int = occupancy.get_bit_number();
+		return rank_attacks(occupancy_int, square) | file_attacks(occupancy_int, square);
+	}
+
+	static Bitboard bishop_attacks(const Bitboard& occupancy, Square square)
+	{
+		uint64_t occupancy_int = occupancy.get_bit_number();
+		return diag_attacks(occupancy_int, square) | antidiag_attacks(occupancy_int, square);
+	}
+
+	static Bitboard queen_attacks(const Bitboard& occupancy, Square square)
+	{
+		return bishop_attacks(occupancy, square) | rook_attacks(occupancy, square);
+	}
 
 	static bool is_square_attacked(
 		const Bitboard& occupancy,
@@ -366,16 +416,6 @@ public:
 		const Bitboard& rooks,
 		const Bitboard& kings,
 		bool reverse_pawn_attacks=false);
-
-	static w_array<int, Bitboard::NUMBER_SQUARES> attacks_pressure_matrix(
-		const Bitboard& occupancy,
-		const Bitboard& pawns,
-		const Bitboard& bishops,
-		const Bitboard& knights,
-		const Bitboard& queens,
-		const Bitboard& rooks,
-		const Bitboard& kings,
-		bool reverse_pawn_attacks = false);
 
 	static bool in_rank(Square square, Rank rank)
 	{

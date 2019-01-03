@@ -82,7 +82,7 @@ private:
 struct PieceNS
 {
 	static const std::string PIECE_STRINGS;
-	enum Value { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NUMBER_PIECES, NO_PIECE = -1 };
+	enum Value { KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN, NUMBER_PIECES, NO_PIECE = -1 };
 
 };
 typedef PieceNS::Value Piece; 
@@ -195,5 +195,7 @@ struct w_array {
 	}
 };
 
+// TODO: move this.
+std::string piece_string_lower(Piece piece);
 
 #endif

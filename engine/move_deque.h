@@ -5,7 +5,6 @@
 #define _SILENCE_PARALLEL_ALGORITHMS_EXPERIMENTAL_WARNING
 #endif
 
-#include "Move.h"
 #include "position.h"
 
 #include <algorithm>
@@ -18,7 +17,7 @@
 class MoveDeque
 {
 public:
-	MoveDeque() : move(nullptr) {};
+	MoveDeque() : move(0) {};
 	MoveDeque(const MoveDeque&) = default;
 	MoveDeque(MoveDeque&&) = default;
 	MoveDeque& operator=(const MoveDeque&) = default;
@@ -27,12 +26,12 @@ public:
 
 	std::shared_ptr<MoveDeque> before;
 	std::shared_ptr<MoveDeque> after;
-	Move move;
+	MoveTiny move;
 
 	static void join(
 		std::shared_ptr<MoveDeque> md, 
 		std::shared_ptr<MoveDeque> md_after,
-		Move move)
+		MoveTiny move)
 	{
 		md_after->before = md;
 		md->after = md_after;
@@ -59,7 +58,7 @@ public:
 		// Go forward.
 		while (tmp->after != nullptr)
 		{
-			tmp->move.apply(pos);
+			pos.apply(tmp->move);
 			tmp = tmp->after;
 		}
 	}
@@ -72,7 +71,7 @@ public:
 		while (tmp->before != nullptr)
 		{
 			tmp = tmp->before;
-			tmp->move.unapply(pos);
+			pos.unapply(tmp->move);
 		};
 	}
 
@@ -91,7 +90,7 @@ public:
 
 		while (tmp->after != nullptr)
 		{
-			ss << tmp->move.as_uci() << " ";
+			ss << as_uci(tmp->move) << " ";
 			tmp = tmp->after;
 		}
 					

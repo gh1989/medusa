@@ -14,19 +14,10 @@ bool Position::any_legal_move()
 	auto pawn_moves		= legal_pawn_moves(us);
 	auto king_castling  = legal_castling_moves(us);
 
-	std::vector<Move> moves;
+	std::vector<MoveTiny> moves;
 
-	// Work out size of new vector
-	auto size_requirement = moves.size();
-	size_requirement += pawn_moves.size();
-
-	size_requirement += rook_moves.size();
-	size_requirement += bishop_moves.size();
-	size_requirement += queen_moves.size();
-	size_requirement += king_moves.size();
-	size_requirement += king_castling.size();
-	size_requirement += knight_moves.size();
-	moves.reserve(size_requirement);
+	// There are not going to be more than 64 legal moves in a standard game.
+	moves.reserve(64); 
 
 	// Insert them all at the end
 	moves.insert(moves.end(), pawn_moves.begin(), pawn_moves.end());
@@ -37,22 +28,24 @@ bool Position::any_legal_move()
 	moves.insert(moves.end(), knight_moves.begin(), knight_moves.end());
 
 	Colour them = ~us;
-	auto is_not_check = [this, us, them](const Move& move)
+	auto is_not_check = [this, us, them](MoveTiny move)
 	{
-		move.apply(*this);
+		apply(move);
+
 		auto king = this->bitboards.data[us.index()].data[Piece::KING];
 		bool is_check = this->is_square_attacked(king, them);
-		move.unapply(*this);
+
+		unapply(move);
 		return !is_check;
 	};
 
 	return std::any_of(moves.begin(), moves.end(), is_not_check);
 }
 
-std::vector<Move> Position::legal_moves()
+std::vector<MoveTiny> Position::legal_moves()
 {
 	Colour us = to_move;
-    std::vector<Move> moves;
+    std::vector<MoveTiny> moves;
 
     // Get all moves
     auto rook_moves    = legal_slider_moves(us, Piece::ROOK, &Bitboard::rook_attacks);
@@ -63,17 +56,8 @@ std::vector<Move> Position::legal_moves()
     auto king_castling = legal_castling_moves(us);
     auto pawn_moves    = legal_pawn_moves(us);
 
-    // Work out size of new vector
-    auto size_requirement = moves.size();
-    size_requirement += pawn_moves.size();
-    
-    size_requirement += rook_moves.size();
-    size_requirement += bishop_moves.size();
-    size_requirement += queen_moves.size();
-    size_requirement += king_moves.size();
-    size_requirement += king_castling.size();
-    size_requirement += knight_moves.size();
-    moves.reserve(size_requirement);
+	// There are not going to be more than 64 legal moves in a standard game.
+    moves.reserve(64);
 
     // Insert them all at the end
     moves.insert( moves.end(), pawn_moves.begin(),    pawn_moves.end()    );
@@ -86,14 +70,15 @@ std::vector<Move> Position::legal_moves()
 
     // Now filter out all illegals due to check at the end.
 	Colour them = ~us;
-	auto remove_condition = [this, us, them](const Move& move)
+	auto remove_condition = [this, us, them](MoveTiny move)
 	{
-		move.apply(*this);
+		apply(move);
 
 		// Discovered check?
 		auto king = this->bitboards.data[us.index()].data[Piece::KING];
 		bool discovered_check = this->is_square_attacked(king, them);
-		move.unapply(*this);
+
+		unapply(move);
 
 		return discovered_check;
     };
@@ -104,12 +89,12 @@ std::vector<Move> Position::legal_moves()
     return moves;
 }
 
-std::vector<Move> Position::legal_jumper_moves(
+std::vector<MoveTiny> Position::legal_jumper_moves(
     Colour colour,
     Piece piece,
     const w_array<Bitboard, Bitboard::NUMBER_SQUARES>& attacks) const
 {
-    std::vector<Move> moves;
+    std::vector<MoveTiny> moves;
 	auto opposite_colour = ~colour;
     Bitboard potential_jumps;
     Bitboard potential_captures;
@@ -130,23 +115,13 @@ std::vector<Move> Position::legal_jumper_moves(
 
         for (auto finish : potential_jumps.non_empty_squares())
         {
-            auto move = MoveFactory::Simple(colour, piece, start, finish);
+            auto move = create_move(start, finish);
             moves.push_back(move);
         }
 
         for (auto finish : potential_captures.non_empty_squares())
         {
-            int captured_piece_number=0;
-            auto finish_bitboard = squares.data[finish];
-
-            while (!(opposite_pieces.data[captured_piece_number] & finish_bitboard).any())
-            {
-                captured_piece_number++;
-            }
-
-            auto captured_piece = static_cast<Piece>(captured_piece_number);
-
-            auto move = MoveFactory::Capture(colour, piece, captured_piece, start, finish, finish);
+            auto move = create_move(start, finish);
             moves.push_back(move);
         }
     }
@@ -154,12 +129,12 @@ std::vector<Move> Position::legal_jumper_moves(
     return moves;
 }
 
-std::vector<Move> Position::legal_slider_moves(
+std::vector<MoveTiny> Position::legal_slider_moves(
 	Colour colour, 
 	Piece piece, 
     std::function<Bitboard(const Bitboard&, Bitboard::Square)> attacks_func) const
 {
-    std::vector<Move> moves;
+    std::vector<MoveTiny> moves;
 	Colour opposite_colour = ~colour;
 
     // TODO: Have these method return by reference.
@@ -185,23 +160,13 @@ std::vector<Move> Position::legal_slider_moves(
         
         for (auto finish : potential_jumps.non_empty_squares())
         {
-            auto move = MoveFactory::Simple(colour, piece, start, finish);
+            auto move = create_move(start, finish);
             moves.push_back(move);
         }
         
         for (auto finish : potential_captures.non_empty_squares())
-        {
-            int captured_piece_number=0;
-            auto finish_bitboard = squares.data[finish];
-            
-            while (!(opposite_pieces.data[captured_piece_number] & finish_bitboard).any())
-            {
-                captured_piece_number++;
-            }
-            
-            auto captured_piece = static_cast<Piece>(captured_piece_number);
-           
-			auto move = MoveFactory::Capture(colour, piece, captured_piece, start, finish, finish);
+        {      
+			auto move = create_move(start, finish);
             moves.push_back(move);
         }
     }
@@ -209,7 +174,7 @@ std::vector<Move> Position::legal_slider_moves(
     return moves;
 }
 
-std::vector<Move> Position::legal_pawn_moves(Colour colour) const
+std::vector<MoveTiny> Position::legal_pawn_moves(Colour colour) const
 {
     Position context(*this);
 	auto opposite_colour = ~colour;
@@ -218,12 +183,12 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
         context = context.reflect();
     }
     
-    std::vector<Move> moves;
+    std::vector<MoveTiny> moves;
     Bitboard potential_jumps;
     Bitboard potential_captures;
 
     // TODO: Have these method return by reference.
-    auto en_passant      = context.get_enpassant();
+    auto enpassant_      = context.enpassant;
     auto opposite_pieces = context.bitboards.data[opposite_colour.index()];
     auto our_occupants   = context.occupants(colour);
     auto piece_occupancy = context.bitboards.data[colour.index()].data[Piece::PAWN];
@@ -246,7 +211,7 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
 		auto attacks = pawn_attacks.data[start];
 	
 		potential_jumps = pushes & (~occupants);
-		potential_captures = attacks & (en_passant| (their_occupants & (~our_occupants)));
+		potential_captures = attacks & (enpassant_ | (their_occupants & (~our_occupants)));
 
 		//____________________________________________________
         // Pawn pushes
@@ -261,7 +226,7 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
  			{
  				for (auto& pp : promote_pieces)
  				{
-					auto move = MoveFactory::Promotion(colour, pp, start, finish);
+					auto move = create_promotion(start, finish, PromotionPiece(pp));
  					moves.push_back(move);
  				}
  			}
@@ -272,7 +237,7 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
  				Bitboard square_ahead = start_bitboard << 8;
  				if ((occupants & (square_ahead | finish_bitboard)).empty())
  				{
-					auto move = MoveFactory::Simple(colour, Piece::PAWN, start, finish);
+					auto move = create_move(start, finish);
  					moves.push_back(move);
  				}
  			}
@@ -283,39 +248,24 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
         //____________________________________________________
 	 	for(auto finish : potential_captures.non_empty_squares())
 	 	{
-			int captured_piece_number=0;// pawn - default is used for en-passant
 			auto finish_bitboard = squares.data[finish];
-			auto captured_start = finish;
 			
-			if ((en_passant & finish_bitboard).any())
+			if ((enpassant_ & finish_bitboard).any())
 			{
-				captured_start = static_cast<Bitboard::Square>(static_cast<int>(captured_start)-8);
+				auto move = create_en_passant(start, finish);
+				moves.push_back(move);
 			}
-			else
-			{
-				while (!(opposite_pieces.data[captured_piece_number] & finish_bitboard).any())
-				{
-					captured_piece_number++;
-				}
-			}
-
-            // Checks
-			auto captured_piece = static_cast<Piece>(captured_piece_number);
-
-            // Pawn captures: promotion
-			if ((promote_rank & finish_bitboard).any())
+			else if ((promote_rank & finish_bitboard).any())
 			{
 				for (auto& pp : promote_pieces)
 				{
-					auto move = MoveFactory::PromotionCapture(colour, pp, captured_piece, start, finish);
+					auto move = create_promotion(start, finish, PromotionPiece(pp));
 					moves.push_back(move);
 				}
 			}
-
-            // Pawn captures: no promotion.
 			else
 			{
-				auto move = MoveFactory::Capture(colour, Piece::PAWN, captured_piece, start, finish, captured_start);
+				auto move = create_move(start, finish);
 				moves.push_back(move);
 			}
 	 	}
@@ -328,15 +278,15 @@ std::vector<Move> Position::legal_pawn_moves(Colour colour) const
             moves.begin(), 
             moves.end(), 
             moves.begin(), 
-            [](const Move& move){ return move.reflect(); } );
+            [](MoveTiny move){ return reflect_move_tiny(move); } );
     }
 
 	return moves;
 }
 
-std::vector<Move> Position::legal_castling_moves(Colour colour) const
+std::vector<MoveTiny> Position::legal_castling_moves(Colour colour) const
 {
-    std::vector<Move> moves;
+    std::vector<MoveTiny> moves;
 
     bool black         = colour.is_black();
     auto castling      = get_castling();
@@ -361,7 +311,7 @@ std::vector<Move> Position::legal_castling_moves(Colour colour) const
         unobstructed &= !(all_occupants & (near_square | far_square | extra_square)).any();
         if (unobstructed)
         {
-			auto move = MoveFactory::Castle(queenside);
+			auto move = create_castle(black ? Bitboard::e8 : Bitboard::e1, black ? Bitboard::c8 : Bitboard::c1);
             moves.push_back(move);
         }
     }
@@ -376,7 +326,7 @@ std::vector<Move> Position::legal_castling_moves(Colour colour) const
         unobstructed &= !(all_occupants & (near_square | far_square)).any();
         if (unobstructed)
         {
-			auto move = MoveFactory::Castle(kingside);
+			auto move = create_castle(black ? Bitboard::e8 : Bitboard::e1, black ? Bitboard::g8 : Bitboard::g1);
             moves.push_back(move);
         }
     }

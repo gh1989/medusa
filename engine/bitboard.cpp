@@ -22,27 +22,11 @@ w_array<Bitboard, Bitboard::NUMBER_SQUARES>  Bitboard::_attacks_NW;
 w_array<Bitboard, Bitboard::NUMBER_SQUARES>  Bitboard::_attacks_W;
 w_array<Bitboard, Bitboard::NUMBER_SQUARES>  Bitboard::_attacks_SW;
 
-w_array<int, 64> Bitboard::central_importance;
-
 Bitboard Bitboard::_king_castle_path;
 Bitboard Bitboard::_queen_castle_path;
 
 void Bitboard::populate()
 {
-	const int central[NUMBER_SQUARES] = {
-		0,  0,  0,  0,  0,  0,  0,  0,
-		0,  1,  1,  1,  1,  1,  1,  0,
-		0,  1,  2,  2,  2,  2,  1,  0,
-		0,  1,  2,  4,  4,  2,  1,  0,
-		0,  1,  2,  4,  4,  2,  1,  0,
-		0,  1,  2,  2,  2,  2,  1,  0,
-		0,  1,  1,  1,  1,  1,  1,  0,
-		0,  0,  0,  0,  0,  0,  0,  0
-	};
-		
-	for (auto i = 0; i < NUMBER_SQUARES; ++i)
-		central_importance.data[i] = central[i];
-
 	// File bitboards
 	_files.data[Bitboard::A_FILE] = Bitboard(0x0101010101010101);
 	for (int i = Bitboard::B_FILE; i < Bitboard::NUMBER_FILES; ++i) {
@@ -355,94 +339,6 @@ uint64_t Bitboard::rotate180(uint64_t x)
 	return x & 0xFFFFFFFFFFFFFFFF;
 }
 
-Bitboard Bitboard::slider_attacks(
-	const Bitboard& occupancy,
-	Square square,
-	const Bitboard& direction_mask)
-{
-	uint64_t potential_blockers = (occupancy & direction_mask).bit_number;
-	uint64_t diff = potential_blockers - 2 * _squares.data[square].bit_number;
-	uint64_t changed = diff ^ occupancy.bit_number;
-	return changed & direction_mask.bit_number;
-}
-
-Bitboard Bitboard::diag_attacks(
-	const Bitboard& occupancy,
-	Square square)
-{
-	auto diag_mask = get_diag_mask(square);
-	auto forward_part = slider_attacks(occupancy, square, diag_mask);
-	auto sqr_bit_num = _squares.data[square].bit_number;
-	Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
-	uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
-	Square reversed_square = reversed_square_bitboard.bit_length();
-	auto anti_diag_mask_for_reversed = get_anti_diag_mask(reversed_square);
-	auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, anti_diag_mask_for_reversed);
-	return forward_part.bit_number | byteswap(reversed_part.bit_number);
-}
-
-Bitboard Bitboard::antidiag_attacks(
-	const Bitboard& occupancy,
-	Square square)
-{
-	auto anti_diag_mask = get_anti_diag_mask(square);
-	auto forward_part = slider_attacks(occupancy, square, anti_diag_mask);
-	auto sqr_bit_num = _squares.data[square].bit_number;
-	Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
-	uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
-	Square reversed_square = reversed_square_bitboard.bit_length();
-	auto diag_mask_for_reversed = get_diag_mask(reversed_square);
-	auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, diag_mask_for_reversed);
-	return forward_part.bit_number | byteswap(reversed_part.bit_number);
-}
-
-Bitboard Bitboard::file_attacks(
-	const Bitboard& occupancy,
-	Square square)
-{
-	auto file_mask = get_file_mask(square);
-	auto forward_part = slider_attacks(occupancy, square, file_mask);
-	auto sqr_bit_num = _squares.data[square].bit_number;
-	Bitboard reversed_square_bitboard = byteswap(sqr_bit_num);
-	uint64_t reversed_occupancy = byteswap(occupancy.bit_number);
-	Square reversed_square = reversed_square_bitboard.bit_length();
-	auto file_mask_for_reversed = get_file_mask(reversed_square);
-	auto reversed_part = slider_attacks(reversed_occupancy, reversed_square, file_mask_for_reversed);
-	return forward_part.bit_number | byteswap(reversed_part.bit_number);
-}
-
-Bitboard Bitboard::rank_attacks(
-	const Bitboard& occupancy,
-	Square square)
-{
-	auto rank_mask = get_rank_mask(square);
-	auto forward_part = slider_attacks(occupancy, square, rank_mask);
-	auto sqr_bit_num = _squares.data[square].bit_number;
-	Bitboard rotated_square_bitboard = rotate180(sqr_bit_num);
-	uint64_t rotated_occupancy = rotate180(occupancy.bit_number);
-	Square rotated_square = rotated_square_bitboard.bit_length();
-	auto rank_mask_for_rotated = get_rank_mask(rotated_square);
-	auto rotated_part = slider_attacks(rotated_occupancy, rotated_square, rank_mask_for_rotated);
-	return forward_part.bit_number | rotate180(rotated_part.bit_number);
-}
-
-Bitboard Bitboard::rook_attacks(const Bitboard& occupancy, Square square)
-{
-	uint64_t occupancy_int = occupancy.get_bit_number();
-	return rank_attacks(occupancy_int, square) | file_attacks(occupancy_int, square);
-}
-
-Bitboard Bitboard::bishop_attacks(const Bitboard& occupancy, Square square)
-{
-	uint64_t occupancy_int = occupancy.get_bit_number();
-	return diag_attacks(occupancy_int, square) | antidiag_attacks(occupancy_int, square);
-}
-
-Bitboard Bitboard::queen_attacks(const Bitboard& occupancy, Square square)
-{
-	return bishop_attacks(occupancy, square) | rook_attacks(occupancy, square);
-}
-
 bool Bitboard::is_square_attacked(
 	const Bitboard& occupancy,
 	const Bitboard& square,
@@ -494,83 +390,4 @@ bool Bitboard::is_square_attacked(
 		return true;
 
 	return false;
-}
-
-w_array<int, Bitboard::NUMBER_SQUARES> Bitboard::attacks_pressure_matrix(
-	const Bitboard& occupancy,
-	const Bitboard& pawns,
-	const Bitboard& bishops,
-	const Bitboard& knights,
-	const Bitboard& queens,
-	const Bitboard& rooks,
-	const Bitboard& kings,
-	bool reverse_pawn_attacks)
-{
-	w_array<int, Bitboard::NUMBER_SQUARES> ret;
-	for (int i = 0; i < Bitboard::NUMBER_SQUARES; i++)
-		ret.data[i] = 0;
-
-	// This is suspicious
-	for (auto square : pawns.non_empty_squares())
-	{
-		// this pawn square
-		auto pawn_square = _squares.data[square];  
-		auto pawn_square_number = pawn_square.bit_number;
-		// rotate 180 the black pawn square
-		if (reverse_pawn_attacks)
-			pawn_square_number = rotate180(pawn_square_number);
-		// create the new bitboard
-		auto new_pawn_square = Bitboard(pawn_square_number);
-		// so find the real index
-		auto pawn_s = new_pawn_square.bit_length();
-		// get the (potentially rotated attacks)
-		auto attacks_number = _pawn_attacks.data[pawn_s].bit_number;
-		// rotate them back
-		if (reverse_pawn_attacks)
-			attacks_number = rotate180(attacks_number);
-		auto attacks = Bitboard(attacks_number);
-		ret = ret + attacks.to_pressure_matrix(9);
-	}
-
-	for (auto square : knights.non_empty_squares())
-	{
-		auto attacks = _knight_attacks.data[square];
-		ret = ret + attacks.to_pressure_matrix(3);
-	}
-
-	for (auto square : bishops.non_empty_squares())
-	{
-		auto attacks = bishop_attacks(occupancy, square);
-		ret = ret + attacks.to_pressure_matrix(3);
-	}
-
-	for (auto square : queens.non_empty_squares())
-	{
-		auto attacks = queen_attacks(occupancy, square);
-		ret = ret + attacks.to_pressure_matrix(1);
-	}
-
-	for (auto square : rooks.non_empty_squares())
-	{
-		auto attacks = rook_attacks(occupancy, square);
-		ret = ret + attacks.to_pressure_matrix(2);
-	}
-
-	/* This makes the king walk around the board...
-	for (auto square : kings.non_empty_squares())
-	{
-		auto attacks = _king_attacks.data[square];
-		ret = ret + attacks.to_pressure_matrix();
-	}
-	*/
-	return ret;
-}
-
-w_array<int, Bitboard::NUMBER_SQUARES> Bitboard::to_pressure_matrix(int value) const
-{
-	w_array<int, Bitboard::NUMBER_SQUARES> pressure_matrix;
-	uint64_t bit = 1;
-	for (int square = Bitboard::a1; square < Bitboard::NUMBER_SQUARES; square++)
-		pressure_matrix.data[square] = (bit_number & (bit << square)) ? value : 0;
-	return pressure_matrix;
 }

@@ -19,24 +19,51 @@ void UciCommand::process(std::string command)
 
 bool UciCommand::process_part(std::string command_part)
 {
+	bool end = command_part.empty();
+
+	// Go
 	if (command_part == "go")
 	{
-		int depth = 4;
-		searcher.search(position, depth);
+		state = SearchGo;
+		return true;
+	}
 
-		// End of command.
+	// Go body
+	if (state == SearchGo)
+	{
+		// Go-depth
+		if (command_part == "depth")
+		{
+			state = SearchDepth;
+			return true;
+		}
+
+		// Go-end
+		if (end)
+		{
+			searcher.search(position, search_depth);
+			return false;
+		}
+
 		return false;
 	}
 
-	// Prepare position stuff.
+	// Go-depth
+	if (state == SearchDepth)
+	{
+		search_depth = std::stoi(command_part);
+		state = SearchGo;
+		return true;
+	}
+
+	// Position
 	if (command_part == "position")
 	{
-		state = UciCommand::PositionCmd;
+		state = PositionCmd;
 		return true;
 	}
 	
-	// If we end and did not apply moves, need to create position.
-	bool end = command_part.empty();
+	// Position-end
 	if (end && (state & (PositionFromStart | PositionFromFen) ) )
 	{
 		position = position_from_fen(fen);
@@ -47,15 +74,18 @@ bool UciCommand::process_part(std::string command_part)
 	if (end)
 		return false;
 
+	// Position body
 	switch (state)
 	{
 	case PositionCmd:
 	{
+		// Position-startpos
 		fen = "";
 		if (command_part == "startpos")
 		{
 			state    = PositionFromStart;
 		}
+		// Position-fen
 		else if (command_part == "fen")
 			state = PositionFromFen;
 		else
@@ -64,26 +94,28 @@ bool UciCommand::process_part(std::string command_part)
 	}
 	case PositionFromStart:
 	{
-		// a way to escape from fen mode.
+		// position starpos moves
 		if (command_part == "moves")
 		{
 			position = position_from_fen(fen);
 			state = PositionWithMoves;
 		}
 		else
-			return false; // failed
+			return false;
 		break;
 	}
 	case PositionWithMoves:
 	{
+		// position [ startpos | fen ] moves ... 
 		position.apply_uci(command_part);
 		break;
 	}
+	// position fen ...
 	case PositionFromFen:
 	{
+		// position fen ...
 		if (command_part != "moves")
 		{
-			// keep adding to the fen, it has spaces.
 			if (fen.empty())
 				fen = command_part;
 			else
@@ -91,6 +123,7 @@ bool UciCommand::process_part(std::string command_part)
 		}
 		else
 		{
+			// position fen moves
 			position = position_from_fen(fen);
 			state    = PositionWithMoves;
 		}

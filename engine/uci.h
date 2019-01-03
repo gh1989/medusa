@@ -23,11 +23,14 @@ private:
 		PositionFromStart = 2,
 		PositionWithMoves = 4,
 		PositionReady = 8,
+		SearchGo = 16,
+		SearchDepth = 32,
 	};
 
 	State state;
 	std::string fen;
 	std::string moves;
+	int search_depth;
 	Position position;
 	PositionSearcher searcher;
 };

@@ -1,57 +1,8 @@
 #include "utils.h"
+#include "types.h"
+
 #include <stdint.h>
 #include <iostream>
-
-Position apply_from_string(Position& position, std::string str)
-{
-
-    // TODO: fix this inefficiency
-    size_t i;
-    while ((i = str.find('!')) != str.npos)
-        str.erase(i,1);
-    while ((i = str.find('?')) != str.npos)
-        str.erase(i,1);
-        
-    bool is_check = (str.back() == '+') || (str.back() == '#');
-	auto move = move_from_string(position, str);
-    move.apply(position);
-
-    if (position.in_check() == is_check)
-    {
-    	return position;
-	}
-    else
-    {
-        throw std::runtime_error("A move has incorrect check annotation.");
-    }
-}
-
-Move move_from_string(Position& position, std::string str)
-{
-    // TODO: fix this inefficiency
-    size_t i;  
-    while ((i = str.find('!')) != str.npos)
-        str.erase(i, 1);
-    while ((i = str.find('?')) != str.npos)
-        str.erase(i, 1);
-    while ((i = str.find('+')) != str.npos)
-        str.erase(i, 1);
-    while ((i = str.find('#')) != str.npos)
-        str.erase(i, 1);
-
-    Colour to_move = position.colour_to_move();
-    auto moves = position.legal_moves();
-    
-    for(auto it=moves.begin(); it!=moves.end(); it++)
-    {
-        auto move = *it;
-        if (move.described_by(str))
-            return move;
-    }
-    
-    std::cout<<"ERROR: There is no move satisfying the criteria."<<std::endl;
-    return Move(nullptr);
-}
 
 std::string piece_string(Piece piece, Colour c)
 {       
@@ -71,7 +22,6 @@ Bitboard bitboard_from_string(std::string str)
 
 Position position_from_fen(std::string fen)
 {
-	const std::string piece_strings = "PNBRQK";
 	const std::string castle_enum = "QKqk";
 	
 	if(fen == "")
@@ -112,6 +62,7 @@ Position position_from_fen(std::string fen)
 		    }
 		    else
 		    {
+				const std::string piece_strings = "NBRQKP";
 		    	found = piece_strings.find(::toupper(c));
 		    	if(found == std::string::npos)
 		    	{
@@ -160,11 +111,11 @@ Position position_from_fen(std::string fen)
     if(epstring != "-")
     {
     	auto epboard = bitboard_from_string(epstring);
-	    pos.push_enpassant(epboard);
+	    pos.set_enpassant(epboard);
 	}
 	else
 	{
-		pos.push_enpassant_clear();
+		pos.set_enpassant(0);
 	}
 	
 	if(fiftycounter != "-")  
@@ -173,11 +124,11 @@ Position position_from_fen(std::string fen)
 		if(counter >= 10000)
 			throw std::runtime_error("FEN is formatted improperly.");
 			
-		pos.push_fifty(counter);
+		pos.set_fifty_counter(counter);
 	}
 	else
 	{
-		pos.push_fifty_clear();
+		pos.set_fifty_counter(0);
 	}
 		
 	if(moveclock != "-")

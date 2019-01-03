@@ -11,8 +11,9 @@ std::shared_ptr<MoveDeque> PositionSearcher::search(Position &pos, int max_depth
 	
 	Score alpha = Score::Checkmate(-1);
 	Score beta  = Score::Checkmate(1);
+	PositionHistory::Clear();
 	Score score = this->search(pos, md, alpha, beta, max_depth);
-	std::cout << "bestmove " << md->move.as_uci() << std::endl;
+	std::cout << "bestmove " << as_uci(md->move) << std::endl;
 	return md;
 }
 
@@ -85,9 +86,9 @@ Score PositionSearcher::search(
 		auto move = pair.second;
 
 		std::shared_ptr<MoveDeque> moves_after(new MoveDeque());
-		move.apply(pos);
+		pos.apply(move);
 		score = -this->search(pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
-		move.unapply(pos);
+		pos.unapply(move);
 
 		// Update the move deque if we have an improvement.
 		if (score > best_score)

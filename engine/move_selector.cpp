@@ -13,20 +13,19 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 	{
 		// Move promise score
 		int promise = 0;
-		
-		
+				
 		// === Apply ===
-		move.apply( position );
+		position.apply(move);
 		
 		// Exit the loop if actually we are quiescent and this
 		// is a quiet move.
-		bool is_capture		= move.is_capture();
+		bool is_capture		= position.is_capture(move);
 		bool is_check		= position.in_check();
 
 		if (!include_quiet && !(is_check || is_capture))
 		{
 			// Skip! Remember to unapply the move.
-			move.unapply(position);
+			position.unapply(move);
 			continue;
 		}
 		
@@ -34,36 +33,27 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 		{
 			if (position.is_checkmate())
 			{
-				move.unapply(position);
-				moves.insert({ -1024*PROMISE_CAPTURE*QUEEN_SCORE, move });
+				position.unapply(move);
+				moves.insert({ -999999999, move });
 				break;
 			}
 			else
-				promise += PROMISE_CHECK;
-		}
-		/*
-	    // Static exchange eval
-		if (is_capture)
-		{
-			promise += see(position, move);
+				promise += 100000;
 		}
 		
-		// Does this move look good?
-		promise += Eval::move_promise(position, move);	
-		*/	
 		// === Unapply ===
-		move.unapply(position);	   
+		position.unapply(move);
 		moves.insert( { -promise, move } );
 	};
 }
 
-int MoveSelector::see(Position &pos, Move move)
+int MoveSelector::see(Position &pos, MoveTiny move)
 {
 	int value = 0;
 	
 	// Get smallest attacker capture
 	auto next_moves = pos.legal_moves();
-	auto remove_condition = [](const Move& m){ return !m.is_capture();};
+	auto remove_condition = [pos](MoveTiny m){ return pos.is_capture(m); };
 	auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
 	next_moves.erase(to_remove, next_moves.end());
 	
@@ -78,7 +68,7 @@ int MoveSelector::see(Position &pos, Move move)
 	int smallest_attacker = 100000;
 	for (auto m : next_moves)
 	{
-		int attacker = values[next_move.attacker()];
+		int attacker = values[ pos.attacker(next_move) ];
 		if (attacker <= smallest_attacker)
 		{
 			smallest_attacker = attacker;
@@ -87,9 +77,9 @@ int MoveSelector::see(Position &pos, Move move)
 	}
 	
 	// === Apply ====
-	next_move.apply(pos);
-	int capture_value = values[next_move.captured()] - see(pos, next_move);
-	next_move.unapply(pos);
+	pos.apply(next_move);
+	int capture_value = values[ pos.captured( next_move ) ] - see(pos, next_move);
+	pos.unapply(next_move);
 	// === unapply ====
 
 	value = capture_value > 0 ? capture_value : 0;

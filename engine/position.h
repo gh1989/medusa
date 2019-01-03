@@ -2,8 +2,8 @@
 #define position_h
 
 #include "bitboard.h"
-#include "move.h"
 #include "types.h"
+#include "move_tiny.h"
 
 #include <functional>
 #include <memory>
@@ -29,9 +29,9 @@ public:
 	{
 		bitboards = position.bitboards;
 		castling = position.castling;
-	    fifty_stack = position.fifty_stack;
+	    fifty_counter = position.fifty_counter;
 	    plies = position.plies;
-	    enpassant_stack = position.enpassant_stack;
+	    enpassant = position.enpassant;
 		to_move = position.to_move;
 		castling_reflect = position.castling_reflect;
 	}
@@ -39,40 +39,24 @@ public:
 	Position(
 		const TPieceBBs& bitboards_,
 		unsigned short plies_,
-		unsigned short fifty,
-		const Castling& castling_,
-		const Bitboard& enpassant,
-		Colour to_move_,
-		bool castling_reflect_)
-	: 
-		bitboards(bitboards_), 
-		plies(plies_),
-		to_move(to_move_),
-		castling_reflect(castling_reflect_)
-	{
-		castling = castling_;
-		enpassant_stack.push_back(enpassant);
-		fifty_stack.push_back(fifty);
-	}
-
-	Position(
-		const TPieceBBs& bitboards_,
-		unsigned short plies_,
-		const std::vector<unsigned short>& fifty_stack_,
-		const Castling& castling_,
-		const std::vector<Bitboard>& enpassant_stack_,
+		unsigned short fifty_counter_,
+		Castling castling_,
+		Bitboard enpassant_,
 		Colour to_move_,
 		bool castling_reflect_)
 		:
 		bitboards(bitboards_),
 		plies(plies_),
-		fifty_stack(fifty_stack_),
+		fifty_counter(fifty_counter_),
 		castling(castling_),
-		enpassant_stack(enpassant_stack_),
+		enpassant(enpassant_),
 		to_move(to_move_),
 		castling_reflect(castling_reflect_)
 	{
 	}
+
+	void apply(MoveTiny move);
+	void unapply(MoveTiny move);
 
 	Bitboard occupants() const
 	{
@@ -122,23 +106,7 @@ public:
 	    bitboards.data[index].data[piece] = piece_bitboard;
 	}
 	
-	void push_fifty_clear()
-	{
-	    fifty_stack.push_back(0);
-	}
-
-	void push_fifty_increment()
-	{
-	    auto top = fifty_stack.back();
-	    fifty_stack.push_back(++top);
-	}
-
-	void push_fifty(unsigned short top)
-	{
-	    fifty_stack.push_back(top);
-	}
-	
-	unsigned short get_fifty_counter() const {return fifty_stack.back();}
+	unsigned short get_fifty_counter() const {return fifty_counter;}
 	unsigned short get_plies() const {return plies;}
 	
 	Castling get_castling() const 
@@ -149,16 +117,14 @@ public:
 		return c;
 	} 
 	void set_castling(Castling castling_) { castling = castling_; }
-
-	Bitboard get_enpassant() const {return enpassant_stack.back();}
-
+	void set_fifty_counter(short fifty_counter_) { fifty_counter = fifty_counter_; }
+	void set_enpassant(Bitboard enpassant_) { enpassant = enpassant_; }
 	void apply_uci(std::string move_str);
-	
-	void pop_fifty() 
-	{
-	    fifty_stack.pop_back();
-	}
-	
+	Piece piece_at_square(Bitboard::Square square) const;
+	bool is_capture(MoveTiny move) const;
+	Piece attacker(MoveTiny move) const;
+	Piece captured(MoveTiny move) const;
+
 	void tick_forward(
 #ifdef _DEBUG
 		std::string move_str
@@ -187,59 +153,6 @@ public:
 		plies = plies_;
 	}
 
-	w_array<int, Bitboard::NUMBER_SQUARES> board_control() const
-	{
-		// Now how important is each square on the board?
-		auto importance = Bitboard::central_importance;
-
-		// Get the actual attacks or each piece, black and white, then sum them
-		auto white_pressure = attacks_pressure_matrix(Colour::WHITE);
-
-		// The opposing king
-		auto black_king = bitboards.data[0].data[Piece::KING];
-		for (auto square : black_king.non_empty_squares())
-		{
-			auto attacks = Bitboard::get_king_attacks().data[square];
-			importance = importance + attacks.to_pressure_matrix();
-			importance = importance + black_king.to_pressure_matrix();
-		}
-
-		// Importance of the  white pressure
-		white_pressure = white_pressure * importance;
-
-		// Reset importance
-		importance = Bitboard::central_importance;
-
-		auto black_pressure = attacks_pressure_matrix(Colour::BLACK);
-				
-		auto white_king = bitboards.data[1].data[Piece::KING];
-		for (auto square : white_king.non_empty_squares())
-		{
-			auto attacks = Bitboard::get_king_attacks().data[square];
-			importance = importance + attacks.to_pressure_matrix();
-			importance = importance + white_king.to_pressure_matrix();
-		}
-
-		black_pressure = black_pressure * importance;
-		auto board_score = white_pressure - black_pressure;
-		return board_score.clip_values(-1, 1);
-	}
-
-	w_array<int, Bitboard::NUMBER_SQUARES> attacks_pressure_matrix(Colour colour) const
-	{
-		auto occupancy = occupants();
-		int index = colour.index();
-		auto white_pieces = bitboards.data[index];
-		auto king = white_pieces.data[Piece::KING];
-		auto pawns = white_pieces.data[Piece::PAWN];
-		auto knights = white_pieces.data[Piece::KNIGHT];
-		auto bishops = white_pieces.data[Piece::BISHOP];
-		auto queens = white_pieces.data[Piece::QUEEN];
-		auto rooks = white_pieces.data[Piece::ROOK];
-		auto pressure = Bitboard::attacks_pressure_matrix(occupancy, pawns, bishops, knights, queens, rooks, king, colour.is_black());
-		return pressure;
-	}
-
 	void castle_disable(Colour colour)
 	{
 	    Castling w_castling = static_cast<Castling>(Castling::W_QUEENSIDE | Castling::W_KINGSIDE);
@@ -252,117 +165,12 @@ public:
 	{
 		castling = static_cast<Castling>(castling & ~castle_disable);
 	}
-
-	void push_enpassant(const Bitboard& bitboard_)
-	{
-		enpassant_stack.push_back(bitboard_);
-	}
-
-	void push_enpassant_clear()
-	{
-		enpassant_stack.push_back(Bitboard(0));
-	}
-
-	void pop_enpassant()
-	{
-		enpassant_stack.pop_back();
-	}
-
+	
     Colour colour_to_move() const
     {
 		return to_move;
     }
  
-	bool operator>=(const Position& other)
-	{
-		return this->operator>(other) || this->operator==(other);
-	}
-
-	bool operator<=(const Position& other)
-	{
-		return this->operator<(other) || this->operator==(other);
-	}
-
-	bool operator>(const Position& other)
-	{
-		for (auto p : { Piece::PAWN,   Piece::BISHOP, Piece::KING,
-						Piece::KNIGHT, Piece::QUEEN,  Piece::ROOK })
-		{
-			if (bitboards.data[p].data[0].get_bit_number() <=
-				other.bitboards.data[p].data[0].get_bit_number())
-				return false;
-
-			if (bitboards.data[p].data[1].get_bit_number() <=
-				other.bitboards.data[p].data[1].get_bit_number())
-				return false;
-		}
-
-		if (get_castling() <= other.get_castling())
-		{
-			return false;
-		}
-
-		if (get_enpassant().get_bit_number() <=
-			other.get_enpassant().get_bit_number())
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	bool operator<(const Position& other)
-	{
-		for (auto p : { Piece::PAWN,   Piece::BISHOP, Piece::KING,
-						Piece::KNIGHT, Piece::QUEEN,  Piece::ROOK })
-		{
-			if (bitboards.data[p].data[0].get_bit_number() >= 
-				other.bitboards.data[p].data[0].get_bit_number())
-				return false;
-
-			if (bitboards.data[p].data[1].get_bit_number() >=
-				other.bitboards.data[p].data[1].get_bit_number())
-				return false;
-		}
-
-		if (get_castling() >= other.get_castling())
-		{
-			return false;
-		}
-
-		if (get_enpassant().get_bit_number() >=
-			other.get_enpassant().get_bit_number())
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	bool operator==(const Position &other)
-	{
-		for (auto p : { Piece::PAWN,   Piece::BISHOP, Piece::KING,
-					    Piece::KNIGHT, Piece::QUEEN,  Piece::ROOK })
-		{
-			if (!(bitboards.data[p].data[0] == other.bitboards.data[p].data[0]))
-				return false;
-			if (!(bitboards.data[p].data[1] == other.bitboards.data[p].data[1]))
-				return false;
-		}
-
-		if (get_castling() != other.get_castling())
-		{
-			return false;
-		}
-
-		if (!(get_enpassant() == other.get_enpassant()))
-		{
-			return false;
-		}
-
-		return true;
-	}
-
 	bool three_move_repetition() const
 	{
 		/*
@@ -387,7 +195,7 @@ public:
 		return false;
 	}
 	
-	std::vector<Move> legal_moves();
+	std::vector<MoveTiny> legal_moves();
 	bool any_legal_move();
 
 	Bitboard get_piece_bitboard(Colour colour, Piece piece) const
@@ -402,33 +210,55 @@ public:
 	bool in_check() const;
     bool is_checkmate();
 
-private:
-	std::vector<Move> legal_pawn_moves(Colour colour) const;
 
-	std::vector<Move> legal_slider_moves(
+private:
+	std::vector<MoveTiny> legal_pawn_moves(Colour colour) const;
+
+	std::vector<MoveTiny> legal_slider_moves(
 		Colour colour, 
 		Piece piece, 
 		std::function<Bitboard(const Bitboard&, Bitboard::Square)> attacks_func) const;
 
-	std::vector<Move> legal_jumper_moves(
+	std::vector<MoveTiny> legal_jumper_moves(
 		Colour colour,
 		Piece piece,
 		const w_array<Bitboard, Bitboard::NUMBER_SQUARES>& attacks) const;
 
-	std::vector<Move> legal_castling_moves(Colour colour) const;
+	std::vector<MoveTiny> legal_castling_moves(Colour colour) const;
 
     TPieceBBs bitboards;
-    //std::vector<Castling> castle_stack;
 	Castling castling;
-    std::vector<unsigned short> fifty_stack;
+    unsigned short fifty_counter;
     unsigned short plies;
-    std::vector<Bitboard> enpassant_stack;
-	std::vector<int> hash_stack;
+	Bitboard enpassant;
 	Colour to_move;
 #ifdef _DEBUG
 	std::vector<std::string> past_moves;
 #endif
 	mutable bool castling_reflect;
+};
+
+class PositionHistory
+{
+public:
+	static std::vector<Position> history;
+
+	static void Clear()
+	{
+		history.clear();
+	}
+
+	static void Push(const Position& position)
+	{
+		history.emplace_back(position);
+	}
+
+	static Position Pop()
+	{
+		Position ret = history.back();
+		history.pop_back();
+		return ret;
+	}
 };
 
 #endif
