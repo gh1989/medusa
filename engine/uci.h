@@ -8,10 +8,12 @@
 #include "position.h"
 #include "utils.h"
 
+const int DEFAULT_DEPTH = 2;
+
 class UciCommand
 {
 public:
-	UciCommand() :fen("") {}
+	UciCommand() :fen(""), search_depth(DEFAULT_DEPTH), state(Idle) {}
 	void process(std::string command);
 	bool process_part(std::string command_part);
 
@@ -25,6 +27,7 @@ private:
 		PositionReady = 8,
 		SearchGo = 16,
 		SearchDepth = 32,
+		Idle = 64,
 	};
 
 	State state;

@@ -20,9 +20,27 @@ void UciCommand::process(std::string command)
 bool UciCommand::process_part(std::string command_part)
 {
 	bool end = command_part.empty();
+	
+	// isready
+	if (state == Idle && command_part == "isready")
+	{
+		std::cout << "readyok" << std::endl;
+		state = Idle;
+		return false;
+	}
+	
+	// uci
+	if (state == Idle && command_part == "uci")
+	{
+		std::cout << "id name medusa" << std::endl;
+		std::cout << "id author Gregg Hutchence" << std::endl;
+		std::cout << "uciok" << std::endl;
+		state = Idle;
+		return false;
+	}
 
 	// Go
-	if (command_part == "go")
+	if (state == Idle && command_part == "go")
 	{
 		state = SearchGo;
 		return true;
@@ -42,10 +60,13 @@ bool UciCommand::process_part(std::string command_part)
 		if (end)
 		{
 			searcher.search(position, search_depth);
+			search_depth = DEFAULT_DEPTH; // change back to default.
+			state = Idle;
 			return false;
 		}
 
-		return false;
+		// Ignore other options.
+		return true;
 	}
 
 	// Go-depth
@@ -57,7 +78,7 @@ bool UciCommand::process_part(std::string command_part)
 	}
 
 	// Position
-	if (command_part == "position")
+	if (state == Idle && command_part == "position")
 	{
 		state = PositionCmd;
 		return true;
@@ -68,11 +89,19 @@ bool UciCommand::process_part(std::string command_part)
 	{
 		position = position_from_fen(fen);
 
+#ifdef _DEBUG
+		position.pp();
+#endif
+
 		// End of command.
+		state = Idle;
 		return false;
 	}
 	if (end)
+	{
+		state = Idle;
 		return false;
+	}
 
 	// Position body
 	switch (state)
@@ -108,6 +137,9 @@ bool UciCommand::process_part(std::string command_part)
 	{
 		// position [ startpos | fen ] moves ... 
 		position.apply_uci(command_part);
+#ifdef _DEBUG
+		position.pp();
+#endif
 		break;
 	}
 	// position fen ...
@@ -125,13 +157,20 @@ bool UciCommand::process_part(std::string command_part)
 		{
 			// position fen moves
 			position = position_from_fen(fen);
+#ifdef _DEBUG
+			position.pp();
+#endif
 			state    = PositionWithMoves;
 		}
 				
 		break;
 	}
 	default:
-		throw;
+	{
+#ifdef _DEBUG
+		std::cout << "Unkown command..." << std::endl;
+#endif;
+	}
 	}
 
 	return true; // ok

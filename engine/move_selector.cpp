@@ -13,13 +13,14 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 	{
 		// Move promise score
 		int promise = 0;
-				
-		// === Apply ===
-		position.apply(move);
 		
 		// Exit the loop if actually we are quiescent and this
 		// is a quiet move.
-		bool is_capture		= position.is_capture(move);
+		bool is_capture = position.is_capture(move);
+
+		// === Apply ===
+		position.apply(move);
+		
 		bool is_check		= position.in_check();
 
 		if (!include_quiet && !(is_check || is_capture))

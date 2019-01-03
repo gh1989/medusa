@@ -7,20 +7,20 @@
 #include "types.h"
 
 // MoveTiny (16 bit int)
-typedef __int16 MoveTiny;
+typedef unsigned short MoveTiny;
 
 // FROM			     (6 bits)
-constexpr __int64 to_bits   = 6;
-constexpr __int64 flag_bits = 12;
-constexpr __int64 prom_bits = 14;
+constexpr unsigned short to_bits   = 6;
+constexpr unsigned short flag_bits = 12;
+constexpr unsigned short prom_bits = 14;
 
-constexpr __int16 from_mask = 63;
+constexpr unsigned short from_mask = 63;
 // TO				 (6 bits)
-constexpr __int16 to_mask   = 63 << to_bits;
+constexpr unsigned short to_mask   = 63 << to_bits;
 // SPECIAL MOVE      (2 bits)
-constexpr __int16 flag_mask = 3 << flag_bits;
+constexpr unsigned short flag_mask = 3 << flag_bits;
 // PROMOTION PIECE   (2 bits)
-constexpr __int16 prom_mask = 3 << prom_bits;
+constexpr unsigned short prom_mask = 3 << prom_bits;
 
 typedef Bitboard::Square Sqr;
 

@@ -8,6 +8,8 @@ std::vector<Position> PositionHistory::history;
 
 void Position::apply(MoveTiny move)
 {
+	PositionHistory::Push(*this);
+
 	auto special_flag = special_move(move);
 	auto us = colour_to_move();
 	auto them = ~us;
@@ -19,7 +21,8 @@ void Position::apply(MoveTiny move)
 	bool clear_enpassant = true;
 
 	// Move piece from, no matter what.
-	for(int p=0;p<Piece::NUMBER_PIECES;p++)
+	int p = 0;
+	for(p=0;p<Piece::NUMBER_PIECES;p++)
 	{
 		auto our_piece = bitboards.data[idx].data[p];
 		if (our_piece.is_on(start))
@@ -27,8 +30,9 @@ void Position::apply(MoveTiny move)
 			if (p == Piece::PAWN)
 				reset50 = true;
 
-			if (p == Piece::PAWN && abs(finish - start) > 15){
-				Bitboard new_enpassant(1 << (us.is_white() ? (finish - 8) : (start - 8)));
+			if (p == Piece::PAWN && abs(finish - start) > 15)
+			{
+				Bitboard new_enpassant(1ULL << (us.is_white() ? (finish - 8) : (start - 8)));
 				enpassant = new_enpassant;
 				clear_enpassant = false;
 			}
@@ -110,6 +114,11 @@ void Position::apply(MoveTiny move)
 		castle_disable(us);
 		break;
 	}
+	case(NONE):
+	{
+		auto our_piece = bitboards.data[idx].data[p];
+		bitboards.data[idx].data[p] = our_piece.on_bit(finish);
+	}
 	}
 
 	if (reset50)
@@ -125,17 +134,16 @@ void Position::apply(MoveTiny move)
 #else
 	tick_forward();
 #endif
-
-	PositionHistory::Push(*this);
 }
 
 void Position::unapply(MoveTiny move)
 {
 	auto previous = PositionHistory::Pop();
 
-	castling  = previous.castling;
-	bitboards = previous.bitboards;
-	enpassant = previous.enpassant;
+	castling      = previous.castling;
+	bitboards	  = previous.bitboards;
+	enpassant	  = previous.enpassant;
+	fifty_counter = previous.fifty_counter;
 
 	tick_back();
 }
