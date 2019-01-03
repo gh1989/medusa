@@ -90,8 +90,10 @@ void Position::apply(MoveTiny move)
 		// TODO: implement white POV only, for now colour logic.
 		reset50 = true;
 		auto their_pawns = bitboards.data[them_idx].data[Piece::PAWN];
-		auto their_enpassant_pawn = us.is_white() ? (enpassant << 8) : (enpassant >> 8); 
+		auto their_enpassant_pawn = us.is_white() ? (enpassant >> 8) : (enpassant << 8); 
 		bitboards.data[them_idx].data[Piece::PAWN] = their_pawns & ~their_enpassant_pawn; //kill pawn
+		auto our_pawns = bitboards.data[idx].data[Piece::PAWN];
+		bitboards.data[idx].data[Piece::PAWN] = our_pawns | enpassant;
 		break;
 	}
 	case(PROMOTE):
