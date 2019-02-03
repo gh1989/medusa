@@ -1,6 +1,9 @@
 #pragma once
 
 #include "uci.h"
+#include "position_searcher.h"
+
+#include <thread>
 
 void UciCommand::process(std::string command)
 {
@@ -21,6 +24,14 @@ bool UciCommand::process_part(std::string command_part)
 {
 	bool end = command_part.empty();
 	
+	// stop
+	if (state == Idle && command_part == "stop")
+	{
+		PositionSearcher::set_searching_flag(false);
+		state = Idle;
+		return false;
+	}
+
 	// isready
 	if (state == Idle && command_part == "isready")
 	{
@@ -42,6 +53,8 @@ bool UciCommand::process_part(std::string command_part)
 	// Go
 	if (state == Idle && command_part == "go")
 	{
+		PositionSearcher::set_searching_flag(true);
+		PositionSearcher::set_searching_flag(true);
 		state = SearchGo;
 		return true;
 	}
@@ -59,7 +72,7 @@ bool UciCommand::process_part(std::string command_part)
 		// Go-end
 		if (end)
 		{
-			searcher.search(position, search_depth);
+			searcher.search_thread(position, search_depth);
 			search_depth = DEFAULT_DEPTH; // change back to default.
 			state = Idle;
 			return false;

@@ -32,14 +32,15 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 		
 		if (is_check)
 		{
-			if (position.is_checkmate())
+			if (!position.any_legal_move())
 			{
 				position.unapply(move);
-				moves.insert({ -999999999, move });
+				promise += 10000;
+				moves.insert({ -promise, move });
 				break;
 			}
 			else
-				promise += 100000;
+				promise += 1000;
 		}
 
 		// === Unapply ===

@@ -207,7 +207,7 @@ public:
 	}
 
 	std::vector<MoveTiny> pseudo_legal_moves();
-	bool is_illegal_move(MoveTiny move);
+	bool is_illegal_move(MoveTiny move, bool check_discovered_);
 
 	bool is_square_attacked(const Bitboard& square, Colour colour) const;
 	void set_colour(Colour colour) { to_move = colour; }

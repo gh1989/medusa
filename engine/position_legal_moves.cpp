@@ -68,7 +68,8 @@ std::vector<MoveTiny> Position::pseudo_legal_moves()
 std::vector<MoveTiny> Position::legal_moves()
 {
 	auto psuedo_legal = pseudo_legal_moves();
-	auto pred = [this](MoveTiny move) {return this->is_illegal_move(move);  };
+	bool check_d = in_check();
+	auto pred = [this, check_d](MoveTiny move) {return this->is_illegal_move(move, check_d);  };
 	auto to_remove = std::remove_if(psuedo_legal.begin(), psuedo_legal.end(), pred);
 	psuedo_legal.erase(to_remove, psuedo_legal.end());
 	return psuedo_legal;
@@ -77,58 +78,59 @@ std::vector<MoveTiny> Position::legal_moves()
 bool Position::any_legal_move()
 {
 	auto psuedo_legal = pseudo_legal_moves();
-	auto pred = [this](MoveTiny move){return !this->is_illegal_move(move);  };
+	bool check_d = in_check();
+	auto pred = [this, check_d](MoveTiny move){return !this->is_illegal_move(move, check_d);  };
 	return std::any_of(psuedo_legal.begin(), psuedo_legal.end(), pred);
 }
 
-bool Position::is_illegal_move(MoveTiny move)
+bool Position::is_illegal_move(MoveTiny move, bool check_discovered_)
 {
 	// Now filter out all illegals due to check at the end.
 	Colour us = to_move;
 	Colour them = ~to_move;
 
 	auto king = this->get_piece_bitboard(us, Piece::KING);
-	bool check_discovered_check = false;
+	bool check_discovered = check_discovered_;
 
 	auto their_rooks = this->get_piece_bitboard(them, Piece::ROOK);
 	auto their_queens = this->get_piece_bitboard(them, Piece::QUEEN);
 	auto their_bishops = this->get_piece_bitboard(them, Piece::BISHOP);
 
 	if (this->attacker(move) == Piece::KING)
-		check_discovered_check = true;
+		check_discovered = true;
 	else
 	{
 		auto kingsq = square(king);
 		auto start = from(move);
 		auto finish = to(move);
+
 		if (files_eq(kingsq, start) && !files_eq(start, finish))
 		{
 			auto kingfile = Bitboard::get_file_mask(kingsq);
 			if (((their_rooks | their_queens) & kingfile ).any())
-				check_discovered_check = true;
+				check_discovered = true;
 		}
-		else if (ranks_eq(kingsq, start) & !ranks_eq(start, finish))
+		if (ranks_eq(kingsq, start) && !ranks_eq(start, finish))
 		{
 			auto kingrank = Bitboard::get_rank_mask(kingsq);
 			if (((their_rooks | their_queens) & kingrank).any())
-				check_discovered_check = true;
+				check_discovered = true;
 		}
-		else if (diag_to(kingsq, start) & !diag_to(start, finish))
+		if (diag_to(kingsq, start) && !diag_to(start, finish))
 		{
 			auto kingdiag = Bitboard::get_diag_mask(kingsq);
 			if (((their_bishops | their_queens) & kingdiag).any())
-			check_discovered_check = true;
+				check_discovered = true;
 		}
-		else if (anti_diag_to(kingsq, start) & !anti_diag_to(start, finish))
+		if (anti_diag_to(kingsq, start) && !anti_diag_to(start, finish))
 		{
 			auto kingadiag = Bitboard::get_anti_diag_mask(kingsq);
 			if (((their_bishops | their_queens) & kingadiag).any())
-			check_discovered_check = true;
+				check_discovered = true;
 		}
 	}
-		
-	check_discovered_check = true;
-	if (check_discovered_check)
+
+	if (check_discovered)
 	{
 		apply(move);
 		auto king = this->bitboards.data[us.index()].data[Piece::KING];

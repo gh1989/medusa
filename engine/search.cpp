@@ -3,17 +3,51 @@
 #include "eval.h"
 #include "move_selector.h"
 
+#include <chrono>
+#include <ctime>
+#include <functional>
+
 bool PositionSearcher::searching_flag = true;
 
-std::shared_ptr<MoveDeque> PositionSearcher::search(Position &pos, int max_depth)
+size_t PositionSearcher::perft(Position &position, size_t max_depth)
+{
+	if (max_depth == 0)
+		return 1;
+
+	size_t nodes = 0;
+	auto pseudo_legals = position.pseudo_legal_moves();
+	for (auto m : pseudo_legals)
+	{
+		position.apply(m);
+		if (!position.in_check())
+			nodes += perft(position, max_depth - 1);
+		position.unapply(m);
+	}
+
+	return nodes;
+}
+
+void _search_root(PositionSearcher *searcher, Position pos, int max_depth)
+{
+	searcher->search_root(pos, max_depth);
+}
+
+void PositionSearcher::search_thread(Position &pos, int max_depth)
+{
+	if(thread.joinable())
+		thread.detach();
+	thread = std::thread(_search_root, this, std::ref(pos), std::ref(max_depth) );
+}
+
+std::shared_ptr<MoveDeque> PositionSearcher::search_root(Position &pos, int max_depth)
 {
 	std::shared_ptr<MoveDeque> md(new MoveDeque());
-	
+	nodes_searched = 0;
+	search_start_time = std::chrono::system_clock::now();
 	Score alpha = Score::Checkmate(-1);
 	Score beta  = Score::Checkmate(1);
 	PositionHistory::Clear();
-	Score score = this->search(pos, md, alpha, beta, max_depth);
-	std::cout << "bestmove " << as_uci(md->move) << std::endl;
+	this->search(pos, md, alpha, beta, max_depth);
 	return md;
 }
 
@@ -29,6 +63,7 @@ Score PositionSearcher::search(
 		score = -this->search(pos, md, -beta, -alpha, max_depth, 0);
 	else
 		score = this->search(pos, md, alpha, beta, max_depth, 0);
+	std::cout << "bestmove " << as_uci(md->move) << std::endl;
 	return score;
 }
 
@@ -43,7 +78,10 @@ Score PositionSearcher::search(
 	if (max_depth < -60)
 	{
 		PositionSearcher::searching_flag = false;
-		throw;
+
+		std::cout << pos.get_piece_bitboard(Colour::BLACK, Piece::ROOK).get_bit_number() << std::endl;
+		std::cout << pos.get_piece_bitboard(Colour::WHITE, Piece::ROOK).get_bit_number() << std::endl;
+		pos.pp();
 	}
 
 	if (!PositionSearcher::searching_flag)
@@ -95,7 +133,12 @@ Score PositionSearcher::search(
 		{
 			MoveDeque::join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
-				PositionSearcher::print_info(moves_all, score, max_depth);
+			{
+				nodes_searched = perft(pos, max_depth);
+				auto end = std::chrono::system_clock::now();
+				auto elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
+				PositionSearcher::print_info(moves_all, score, max_depth, nodes_searched, elapsed.count());
+			}
 		}
 		if (score > alpha)
 		{
@@ -108,24 +151,26 @@ Score PositionSearcher::search(
 		if (alpha >= beta)
 			break;
 
-		if (max_depth < -50)
-		{
-			std::cout << pos.get_piece_bitboard(Colour::BLACK, Piece::ROOK).get_bit_number() << std::endl;
-			std::cout << pos.get_piece_bitboard(Colour::WHITE, Piece::ROOK).get_bit_number() << std::endl;
-			pos.pp();
-		}
 	}
 
 	return alpha;
 }
 
 void PositionSearcher::print_info(
-	const std::shared_ptr<MoveDeque>& md, 
-	Score score, 
-	size_t depth )
+	const std::shared_ptr<MoveDeque>& md,
+	Score score,
+	size_t depth,
+	size_t nodes,
+	long long time)
 {
+	double time_seconds = double(time) / 1000;
+	size_t nps = nodes / time_seconds;
 	auto line = MoveDeque::get_line(md);
-	std::cout << "info pv " << line;
+	std::cout << "info time " << time << " ";
+	std::cout << "nodes " << nodes << " ";
+	std::cout << "nps " << nps << " ";
+	std::cout << "pv " << line;
+
 	if (!score.is_mate())
 		std::cout << "score cp " << score.get_centipawns() << std::endl;
 	else
