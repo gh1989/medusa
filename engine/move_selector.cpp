@@ -9,6 +9,7 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 	auto unordered_moves  = position.legal_moves();
 	auto colour = position.colour_to_move();
 
+	int i = 0;
 	for (auto &move : unordered_moves)
 	{
 		// Move promise score
@@ -32,11 +33,12 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 		
 		if (is_check)
 		{
+			// Checkmate...
 			if (!position.any_legal_move())
 			{
 				position.unapply(move);
-				promise += 10000;
-				moves.insert({ -promise, move });
+				moves.clear();
+				moves.insert({ 0, move });
 				break;
 			}
 			else

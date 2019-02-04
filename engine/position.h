@@ -237,6 +237,7 @@ private:
     unsigned short plies;
 	Bitboard enpassant;
 	Colour to_move;
+
 #ifdef _DEBUG
 	std::vector<std::string> past_moves;
 #endif

@@ -28,6 +28,7 @@ bool UciCommand::process_part(std::string command_part)
 	if (state == Idle && command_part == "stop")
 	{
 		PositionSearcher::set_searching_flag(false);
+		searcher.stop();
 		state = Idle;
 		return false;
 	}
@@ -53,8 +54,7 @@ bool UciCommand::process_part(std::string command_part)
 	// Go
 	if (state == Idle && command_part == "go")
 	{
-		PositionSearcher::set_searching_flag(true);
-		PositionSearcher::set_searching_flag(true);
+		PositionSearcher::set_searching_flag(false);
 		state = SearchGo;
 		return true;
 	}
@@ -72,6 +72,7 @@ bool UciCommand::process_part(std::string command_part)
 		// Go-end
 		if (end)
 		{
+			PositionSearcher::set_searching_flag(true);
 			searcher.search_thread(position, search_depth);
 			search_depth = DEFAULT_DEPTH; // change back to default.
 			state = Idle;

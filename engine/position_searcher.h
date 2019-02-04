@@ -16,9 +16,10 @@
 class PositionSearcher
 {
 public:
-	PositionSearcher():nodes_searched(0){}
+	PositionSearcher():nodes_searched(0), first_leaf(false){}
 	std::shared_ptr<MoveDeque> search_root(Position &pos, int max_depth);
-	void search_thread(Position &pos, int max_depth);
+	void search_thread(const Position &pos, int max_depth);
+	void stop();
 
 	static void set_searching_flag(bool value)
 	{
@@ -62,4 +63,5 @@ private:
 	std::thread thread;
 	size_t nodes_searched;
 	std::chrono::system_clock::time_point search_start_time;
+	bool first_leaf;
 };

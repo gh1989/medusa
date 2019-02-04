@@ -32,11 +32,19 @@ void _search_root(PositionSearcher *searcher, Position pos, int max_depth)
 	searcher->search_root(pos, max_depth);
 }
 
-void PositionSearcher::search_thread(Position &pos, int max_depth)
+void PositionSearcher::stop()
+{
+	if (thread.joinable())
+		thread.detach();
+}
+
+void PositionSearcher::search_thread(const Position &pos, int max_depth)
 {
 	if(thread.joinable())
 		thread.detach();
-	thread = std::thread(_search_root, this, std::ref(pos), std::ref(max_depth) );
+
+	Position copy_pos = pos;
+	thread = std::thread(_search_root, this, std::ref(copy_pos), std::ref(max_depth) );
 }
 
 std::shared_ptr<MoveDeque> PositionSearcher::search_root(Position &pos, int max_depth)
@@ -46,8 +54,8 @@ std::shared_ptr<MoveDeque> PositionSearcher::search_root(Position &pos, int max_
 	search_start_time = std::chrono::system_clock::now();
 	Score alpha = Score::Checkmate(-1);
 	Score beta  = Score::Checkmate(1);
-	PositionHistory::Clear();
 	this->search(pos, md, alpha, beta, max_depth);
+	PositionHistory::Clear();
 	return md;
 }
 
@@ -87,11 +95,24 @@ Score PositionSearcher::search(
 	if (!PositionSearcher::searching_flag)
 		return alpha;
 	bool qsearch = max_depth <= 0;
+
 	MoveSelector move_selector(pos, !qsearch);
 
+	if (qsearch)
+	{
+		int centipawns = Eval::static_score(pos);
+		auto c = pos.colour_to_move();
+		auto stand_pat = Score::Centipawns(c*centipawns, plies_from_root);
+		if (stand_pat >= beta)
+			return beta;
+		if (alpha < stand_pat)
+			alpha = stand_pat;
+	}
+
 	if (!move_selector.any() 
-		||  pos.get_fifty_counter() > 49 
-	    ||  pos.three_move_repetition() )
+		|| pos.get_fifty_counter() > 49 
+	    || pos.three_move_repetition()
+		)
 	{
 		// Checkmate?
 		if (pos.is_checkmate())
@@ -117,6 +138,8 @@ Score PositionSearcher::search(
 
 	for (auto pair : move_selector.get_moves())
 	{
+		nodes_searched++;
+
 		// To get out of searching
 		if (!PositionSearcher::searching_flag)
 			break;
@@ -134,8 +157,8 @@ Score PositionSearcher::search(
 			MoveDeque::join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
 			{
-				nodes_searched = perft(pos, max_depth);
 				auto end = std::chrono::system_clock::now();
+				//nodes_searched = perft(pos, max_depth);
 				auto elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
 				PositionSearcher::print_info(moves_all, score, max_depth, nodes_searched, elapsed.count());
 			}

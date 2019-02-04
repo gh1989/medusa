@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <vector>
+#include <intrin.h>
 
 #include "types.h"
 
@@ -96,6 +97,11 @@ public:
 		return Bitboard(bit_number & other.bit_number);
 	}
 
+	Bitboard operator^ (const Bitboard& other) const
+	{
+		return Bitboard(bit_number ^ other.bit_number);
+	}
+
 	Bitboard __xor__(const Bitboard &other) const
 	{
 		return Bitboard(bit_number ^ other.bit_number);
@@ -130,15 +136,7 @@ public:
 
 	int on_bits() const
 	{
-		uint64_t bits = bit_number;
-		int x = 0;
-		while(bits != 0)
-		{			
-			if (bits & 1) x++;
-			bits >>= 1;
-		}
-
-		return x;
+		return __popcnt64(bit_number);
 	}
 
 	bool empty() const
