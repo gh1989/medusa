@@ -8,7 +8,7 @@
 #include "position.h"
 #include "utils.h"
 
-const int DEFAULT_DEPTH = 4;
+const int DEFAULT_DEPTH = 2;
 
 class UciCommand
 {

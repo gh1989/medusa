@@ -67,6 +67,19 @@ public:
 	static void populate();
 	uint64_t get_bit_number() const { return bit_number; }
 
+	static Bitboard get_sq(Square sqr)
+	{
+		return _squares.data[sqr];
+	}
+
+	template<typename Square, typename... SqArgs>
+	static Bitboard get_sq(Square sqr, SqArgs... others)
+	{
+		return get_sq(sqr) | get_sq(others...);
+	}
+	
+
+
 	bool operator==(const Bitboard& other)
 	{
 		return bit_number == other.bit_number;

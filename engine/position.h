@@ -66,10 +66,15 @@ public:
 	Bitboard occupants(Colour colour) const
 	{
 		int index = colour.index();
+		return occupants(index);
+	}
+
+	Bitboard occupants(int index) const
+	{
 		auto coloured_occupants_bitboards = bitboards.data[index];
 		Bitboard ret(0);
 
-		for(int i=0; i<Piece::NUMBER_PIECES; ++i)
+		for (int i = 0; i < Piece::NUMBER_PIECES; ++i)
 		{
 			ret = ret | coloured_occupants_bitboards.data[i];
 		}
@@ -203,6 +208,12 @@ public:
 	Bitboard get_piece_bitboard(Colour colour, Piece piece) const
 	{
 		int index = colour.index();
+		return bitboards.data[index].data[piece];
+	}
+
+	// Just want to deal with an enum in eval...
+	Bitboard get_piece_bitboard(int index, Piece piece) const
+	{
 		return bitboards.data[index].data[piece];
 	}
 

@@ -13,7 +13,7 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 	for (auto &move : unordered_moves)
 	{
 		// Move promise score
-		int promise = 0;
+		int promise = Piece::PAWN-position.attacker(move);
 		
 		// Exit the loop if actually we are quiescent and this
 		// is a quiet move.
