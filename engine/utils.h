@@ -9,7 +9,11 @@
 #include <memory>
 #include <string>
 
-std::string piece_string(Piece piece, Colour c);
-Position position_from_fen(std::string str);
-Bitboard bitboard_from_string(std::string str);
+namespace medusa
+{
+	std::string piece_string(Piece piece, Colour c);
+	Position position_from_fen(std::string str);
+	Bitboard bitboard_from_string(std::string str);
+};
+
 #endif

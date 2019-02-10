@@ -5,197 +5,111 @@
 #include <stdint.h>
 #include <string>
 
-class Colour
+namespace medusa
 {
-public:
-
-	Colour()
+	class Colour
 	{
-		value = 1;
-	}
+	public:
+		Colour() : value(1) {}
+		Colour(int value_)
+		{
+			if (abs(value_) != 1)
+				throw("Invalid colour");
+			value = value_;
+		}
 
-	Colour(int value_)
+		int operator*(int other) const {
+			return value * other;
+		}
+
+		Colour operator~() const {
+			return Colour(-value);
+		}
+
+		std::string to_string() const {
+			return value < 0 ? "B" : "W";
+		}
+
+		bool is_black() const {
+			return value < 0;
+		}
+
+		bool is_white() const {
+			return !is_black();
+		}
+
+		int index() const {
+			return (value < 0 ? 1 : 0);
+		}
+
+		int plies() const {
+			return (value < 0 ? 1 : 0);
+		}
+
+		static Colour from_string(std::string colour_string) {
+			if (colour_string == "w")
+				return Colour::WHITE;
+			if (colour_string == "b")
+				return Colour::BLACK;
+			throw("Colour string formatted improperly.");
+		}
+
+		static const Colour WHITE;
+		static const Colour BLACK;
+
+	private:
+		int value;
+	};
+
+	static const std::string PIECE_STRINGS = "NBRQKP";
+
+	enum Piece { KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN, NUMBER_PIECES, NO_PIECE = -1 };
+
+	enum Castling {
+		W_QUEENSIDE = 1,
+		W_KINGSIDE = 2,
+		B_QUEENSIDE = 4,
+		B_KINGSIDE = 8,
+		ALL = 15
+	};
+
+	enum Square
 	{
-		if (abs(value_) != 1)
-			throw("Invalid colour");
-		value = value_;
-	}
+		a1 = 0, b1, c1, d1, e1, f1, g1, h1,
+		a2, b2, c2, d2, e2, f2, g2, h2,
+		a3, b3, c3, d3, e3, f3, g3, h3,
+		a4, b4, c4, d4, e4, f4, g4, h4,
+		a5, b5, c5, d5, e5, f5, g5, h5,
+		a6, b6, c6, d6, e6, f6, g6, h6,
+		a7, b7, c7, d7, e7, f7, g7, h7,
+		a8, b8, c8, d8, e8, f8, g8, h8,
+	};
 
-	int operator*(int other) const
+	std::string piece_string_lower(Piece piece);
+
+	// Move functions
+	// --------------
+	// Move (16 bit int)
+	typedef unsigned short Move;
+	// From
+	constexpr unsigned short to_bits = 6;
+	constexpr unsigned short flag_bits = 12;
+	constexpr unsigned short prom_bits = 14;
+	constexpr unsigned short from_mask = 63;
+	// To
+	constexpr unsigned short to_mask = 63 << to_bits;
+	// Special move
+	constexpr unsigned short flag_mask = 3 << flag_bits;
+	// Promotion piece
+	constexpr unsigned short prom_mask = 3 << prom_bits;
+
+	enum SpecialMove
 	{
-		return value * other;
-	}
-
-	Colour operator~() const
-	{
-		return Colour(-value);
-	}
-
-	std::string to_string() const
-	{
-		return value < 0 ? "B" : "W";
-	}
-
-	bool is_black() const
-	{
-		return value < 0;
-	}
-
-	bool is_white() const
-	{
-		return !is_black();
-	}
-
-	// Data index
-	int index() const
-	{
-		return (value < 0 ? 1 : 0);
-	}
-
-	int plies() const
-	{
-		return (value < 0 ? 1 : 0);
-	}
-
-	static Colour from_string(std::string colour_string)
-	{
-		if (colour_string == "w")
-			return Colour::WHITE;
-		if (colour_string == "b")
-			return Colour::BLACK;
-		throw("Colour string formatted improperly.");
-	}
-
-	static const Colour WHITE;
-	static const Colour BLACK;
-
-private:
-	int value;
-};
-
-/*
-* Necessary hack to get c++11 enums to work 
-*/
-#ifdef SWIG
-%rename(Piece) PieceNS;
-#endif
-struct PieceNS
-{
-	static const std::string PIECE_STRINGS;
-	enum Value { KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN, NUMBER_PIECES, NO_PIECE = -1 };
-
-};
-typedef PieceNS::Value Piece; 
-
-/*
-* Necessary hack to get c++11 enums to work 
-*/
-#ifdef SWIG
-%rename(Castling) CastlingNS;
-#endif
-
-struct CastlingNS
-{
-
-  enum Value {
-	  W_QUEENSIDE = 1,
-	  W_KINGSIDE = 2,
-	  B_QUEENSIDE = 4,
-	  B_KINGSIDE = 8,
-	  ALL = 15
+		NONE = 0,
+		CAPTURE_ENPASSANT = 1,
+		CASTLE = 2,
+		PROMOTE = 3,
 	};
 };
-
-typedef CastlingNS::Value Castling; 
-
-template <typename Type, int N>
-struct w_array {
-	Type data[N];
-
-	size_t __len__() const { return N; }
-
-	const Type& __getitem__(size_t i) const throw(std::out_of_range) 
-	{
-	    if (i >= N || i < 0)
-	      throw std::out_of_range("out of bounds access");
-	    return this->data[i];
-	}
-
-	void __setitem__(size_t i, const Type& v) throw(std::out_of_range) 
-	{
-	    if (i >= N || i < 0)
-	      throw std::out_of_range("out of bounds access");
-	    this->data[i] = v;
-	}
-
-	w_array<int, N> operator+(const w_array<int, N> other) const
-	{
-		auto ret = *this;
-		for (int i = 0; i < N; i++)
-		{
-			ret.data[i] = data[i] + other.data[i];
-		}
-		return ret;
-	}
-
-	w_array<int, N> operator-(const w_array<int, N> other) const
-	{
-		auto ret = *this;
-		for (int i = 0; i < N; i++)
-		{
-			ret.data[i] = data[i] - other.data[i];
-		}
-		return ret;
-	}
-
-	w_array<int, N> operator*(const w_array<int, N> other) const
-	{
-		auto ret = *this;
-		for (int i = 0; i < N; i++)
-		{
-			ret.data[i] = data[i] * other.data[i];
-		}
-		return ret;
-	}
-
-	w_array<int, N> clip_values(int lower, int upper) const
-	{
-		auto ret = *this;
-		int di;
-		for (int i = 0; i < N; i++)
-		{
-			di = data[i];
-			di = upper < di ? upper : di;
-			di = lower > di ? lower : di;
-			ret.data[i] = di;
-		}
-		return ret;
-	}
-
-	template<int M, typename std::enable_if<M*M==N>::type = 0>
-	w_array<int, N> 
-	operator*(const w_array<int, M> other) const
-	{
-		auto ret = *this;
-		for (int i = 0; i < N; i++)
-		{
-			ret.data[i] = data[i] * other.data[i % M];
-		}
-		return ret;
-	}
-
-	int sum() const
-	{
-		int ret = 0;
-		for (int i = 0; i < N; i++)
-		{
-			ret += data[i];
-		}
-		return ret;
-	}
-};
-
-// TODO: move this.
-std::string piece_string_lower(Piece piece);
 
 #endif

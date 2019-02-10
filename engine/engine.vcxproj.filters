@@ -45,7 +45,10 @@
     <ClInclude Include="uci.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="move_tiny.h">
+    <ClInclude Include="board.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="benchmark.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -80,7 +83,7 @@
     <ClCompile Include="uci.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="move_tiny.cpp">
+    <ClCompile Include="board.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

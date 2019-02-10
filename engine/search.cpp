@@ -7,6 +7,8 @@
 #include <ctime>
 #include <functional>
 
+namespace medusa {
+
 bool PositionSearcher::searching_flag = true;
 
 size_t PositionSearcher::perft(Position &position, size_t max_depth)
@@ -86,10 +88,7 @@ Score PositionSearcher::search(
 	if (max_depth < -60)
 	{
 		PositionSearcher::searching_flag = false;
-
-		std::cout << pos.get_piece_bitboard(Colour::BLACK, Piece::ROOK).get_bit_number() << std::endl;
-		std::cout << pos.get_piece_bitboard(Colour::WHITE, Piece::ROOK).get_bit_number() << std::endl;
-		pos.pp();
+		//pos.pp();
 	}
 
 	if (!PositionSearcher::searching_flag)
@@ -100,7 +99,7 @@ Score PositionSearcher::search(
 
 	if (qsearch)
 	{
-		int centipawns = Eval::static_score(pos);
+		int centipawns = eval::static_score(pos);
 		auto c = pos.colour_to_move();
 		auto stand_pat = Score::Centipawns(c*centipawns, plies_from_root);
 		if (stand_pat >= beta)
@@ -124,7 +123,7 @@ Score PositionSearcher::search(
 			return Score::Centipawns(0, plies_from_root);
 
 		// Position evaluation to be maximized or minimized.
-		double centipawns = Eval::static_score(pos);
+		double centipawns = eval::static_score(pos);
 
 		// Since we are always the maximizer we are always technically
 		// white.
@@ -198,4 +197,6 @@ void PositionSearcher::print_info(
 		std::cout << "score cp " << score.get_centipawns() << std::endl;
 	else
 		std::cout << "score mate " << score.get_mate_in() << std::endl;
+}
+
 }

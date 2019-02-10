@@ -120,11 +120,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="benchmark.h" />
     <ClInclude Include="bitboard.h" />
+    <ClInclude Include="board.h" />
     <ClInclude Include="eval.h" />
     <ClInclude Include="move_deque.h" />
     <ClInclude Include="move_selector.h" />
-    <ClInclude Include="move_tiny.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="position_searcher.h" />
     <ClInclude Include="score.h" />
@@ -134,10 +135,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.cpp" />
+    <ClCompile Include="board.cpp" />
     <ClCompile Include="eval.cpp" />
     <ClCompile Include="medusa.cpp" />
     <ClCompile Include="move_selector.cpp" />
-    <ClCompile Include="move_tiny.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="position_legal_moves.cpp" />
     <ClCompile Include="search.cpp" />
