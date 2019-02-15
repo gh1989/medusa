@@ -18,7 +18,7 @@ namespace medusa
 
 	}
 
-	void test_moves()
+	void benchmarks()
 	{
 		auto new_pos = position_from_fen("");
 		new_pos.apply_uci("d2d4");

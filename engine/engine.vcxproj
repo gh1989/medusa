@@ -81,6 +81,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -99,6 +100,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -123,12 +125,10 @@
     <ClInclude Include="benchmark.h" />
     <ClInclude Include="bitboard.h" />
     <ClInclude Include="board.h" />
-    <ClInclude Include="eval.h" />
-    <ClInclude Include="move_deque.h" />
-    <ClInclude Include="move_selector.h" />
+    <ClInclude Include="evaluation.h" />
+    <ClInclude Include="move.h" />
     <ClInclude Include="position.h" />
-    <ClInclude Include="position_searcher.h" />
-    <ClInclude Include="score.h" />
+    <ClInclude Include="search.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="uci.h" />
     <ClInclude Include="utils.h" />
@@ -136,11 +136,9 @@
   <ItemGroup>
     <ClCompile Include="bitboard.cpp" />
     <ClCompile Include="board.cpp" />
-    <ClCompile Include="eval.cpp" />
+    <ClCompile Include="evaluation.cpp" />
     <ClCompile Include="medusa.cpp" />
-    <ClCompile Include="move_selector.cpp" />
     <ClCompile Include="position.cpp" />
-    <ClCompile Include="position_legal_moves.cpp" />
     <ClCompile Include="search.cpp" />
     <ClCompile Include="types.cpp" />
     <ClCompile Include="uci.cpp" />

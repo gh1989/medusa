@@ -1,5 +1,8 @@
-#include "board.h"
 #include <assert.h>
+
+#include "board.h"
+#include "utils.h"
+
 namespace medusa
 {
 	// Directional attacks for bishops, queens and rooks.

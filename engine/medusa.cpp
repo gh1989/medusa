@@ -3,20 +3,11 @@
 #include "benchmark.h"
 #include "uci.h"
 
+using namespace medusa;
+
 int main()
 {
-	medusa::UciCommand uci;
-	std::string command;
-	bool quit = false;
-	while (!quit)
-	{
-		std::getline(std::cin, command);
-		if (command == "quit")
-			break;
-		if (command == "benchmark")
-			medusa::test_moves();
-		uci.process(command);
-	}
-
+	UciLoop uci_loop;
+	uci_loop.RunLoop();
 	return 0;
 }

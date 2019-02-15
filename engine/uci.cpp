@@ -1,186 +1,361 @@
-#pragma once
-
 #include "uci.h"
-#include "position_searcher.h"
+#include "types.h"
+#include "utils.h"
 
-#include <thread>
+#include <exception>
+#include <functional>
+#include <iomanip>
+#include <iostream>
+#include <ios>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
-namespace medusa
-{
 
-	void UciCommand::process(std::string command)
-	{
-		bool keep_going = true;
-		std::istringstream iss(command);
+namespace medusa {
 
-		do {
-			std::string word;
-			iss >> word;
-			keep_going &= process_part(word);
-			if (!keep_going)
-				break;
-
-		} while (iss);
+	std::string GetOrEmpty(
+		const std::unordered_map<std::string, std::string>& params,
+		const std::string& key) {
+		auto iter = params.find(key);
+		if (iter == params.end()) return {};
+		return iter->second;
 	}
 
-	bool UciCommand::process_part(std::string command_part)
-	{
-		bool end = command_part.empty();
-
-		// stop
-		if (state == Idle && command_part == "stop")
-		{
-			PositionSearcher::set_searching_flag(false);
-			searcher.stop();
-			state = Idle;
-			return false;
+	int GetNumeric(const std::unordered_map<std::string, std::string>& params,
+		const std::string& key) {
+		auto iter = params.find(key);
+		if (iter == params.end()) {
+			throw Exception("Unexpected error");
 		}
-
-		// isready
-		if (state == Idle && command_part == "isready")
-		{
-			std::cout << "readyok" << std::endl;
-			state = Idle;
-			return false;
-		}
-
-		// uci
-		if (state == Idle && command_part == "uci")
-		{
-			std::cout << "id name medusa" << std::endl;
-			std::cout << "id author Gregg Hutchence" << std::endl;
-			std::cout << "uciok" << std::endl;
-			state = Idle;
-			return false;
-		}
-
-		// Go
-		if (state == Idle && command_part == "go")
-		{
-			PositionSearcher::set_searching_flag(false);
-			state = SearchGo;
-			return true;
-		}
-
-		// Go body
-		if (state == SearchGo)
-		{
-			// Go-depth
-			if (command_part == "depth")
-			{
-				state = SearchDepth;
-				return true;
+		const std::string& str = iter->second;
+		try {
+			if (str.empty()) {
+				throw Exception("expected value after " + key);
 			}
-
-			// Go-end
-			if (end)
-			{
-				PositionSearcher::set_searching_flag(true);
-				searcher.search_thread(position, search_depth);
-				search_depth = DEFAULT_DEPTH; // change back to default.
-				state = Idle;
-				return false;
-			}
-
-			// Ignore other options.
-			return true;
+			return std::stoi(str);
 		}
-
-		// Go-depth
-		if (state == SearchDepth)
-		{
-			search_depth = std::stoi(command_part);
-			state = SearchGo;
-			return true;
+		catch (std::invalid_argument& e) {
+			throw Exception("invalid value " + str);
 		}
-
-		// Position
-		if (state == Idle && command_part == "position")
-		{
-			state = PositionCmd;
-			return true;
-		}
-
-		// Position-end
-		if (end && (state & (PositionFromStart | PositionFromFen)))
-		{
-			position = position_from_fen(fen);
-
-			// End of command.
-			state = Idle;
-			return false;
-		}
-		if (end)
-		{
-			state = Idle;
-			return false;
-		}
-
-		// Position body
-		switch (state)
-		{
-		case PositionCmd:
-		{
-			// Position-startpos
-			fen = "";
-			if (command_part == "startpos")
-			{
-				state = PositionFromStart;
-			}
-			// Position-fen
-			else if (command_part == "fen")
-				state = PositionFromFen;
-			else
-				return false; // failed
-			break;
-		}
-		case PositionFromStart:
-		{
-			// position starpos moves
-			if (command_part == "moves")
-			{
-				position = position_from_fen(fen);
-				state = PositionWithMoves;
-			}
-			else
-				return false;
-			break;
-		}
-		case PositionWithMoves:
-		{
-			// position [ startpos | fen ] moves ... 
-			position.apply_uci(command_part);
-			break;
-		}
-		// position fen ...
-		case PositionFromFen:
-		{
-			// position fen ...
-			if (command_part != "moves")
-			{
-				if (fen.empty())
-					fen = command_part;
-				else
-					fen = fen + " " + command_part;
-			}
-			else
-			{
-				// position fen moves
-				position = position_from_fen(fen);
-				state = PositionWithMoves;
-			}
-
-			break;
-		}
-		default:
-		{
-#ifdef _DEBUG
-			std::cout << "Unkown command..." << std::endl;
-#endif;
-		}
-		}
-
-		return true; // ok
 	}
 
-};
+	bool ContainsKey(const std::unordered_map<std::string, std::string>& params,
+		const std::string& key) {
+		return params.find(key) != params.end();
+	}
+
+	std::pair<std::string, std::unordered_map<std::string, std::string>>
+		ParseCommand(const std::string& line) {
+		std::unordered_map<std::string, std::string> params;
+		std::string* value = nullptr;
+
+		std::istringstream iss(line);
+		std::string token;
+		iss >> token >> std::ws;
+
+		// If empty line, return empty command.
+		if (token.empty()) return {};
+
+		auto command = kKnownCommands.find(token);
+		if (command == kKnownCommands.end()) {
+			throw Exception("Unknown command: " + line);
+		}
+
+		std::string whitespace;
+		while (iss >> token) {
+			auto iter = command->second.find(token);
+			if (iter == command->second.end()) {
+				if (!value) throw Exception("Unexpected token: " + token);
+				*value += whitespace + token;
+				whitespace = " ";
+			}
+			else {
+				value = &params[token];
+				iss >> std::ws;
+				whitespace = "";
+			}
+		}
+		return { command->first, params };
+	}
+
+	UciLoop::UciLoop()
+		: engine_(
+			std::bind(&UciLoop::SendBestMove, this, std::placeholders::_1), 
+			std::bind(&UciLoop::SendInfo, this, std::placeholders::_1)) 
+	{
+	}
+
+	void UciLoop::RunLoop()
+	{
+		std::cout.setf(std::ios::unitbuf);
+		std::string line;
+		while (std::getline(std::cin, line)) {
+			try {
+				auto command = ParseCommand(line);
+				// Ignore empty line.
+				if (command.first.empty()) continue;
+				if (!DispatchCommand(command.first, command.second)) break;
+			}
+			catch (Exception& ex) {
+				SendResponse(std::string("error ") + ex.what());
+			}
+		}
+	}
+
+	void UciLoop::SendResponse(const std::string& response)
+	{
+		SendResponses({ response });
+	}
+
+	void UciLoop::SendResponses(const std::vector<std::string>& responses)
+	{
+		static std::mutex output_mutex;
+		std::lock_guard<std::mutex> lock(output_mutex);
+		for (auto& response : responses)
+		{
+			std::cout << response << std::endl;
+		}
+	}
+
+	void UciLoop::SendBestMove(const BestMoveInfo& move)
+	{
+		std::string res = "bestmove " + as_uci(move.best_move);
+		SendResponse(res);
+	}
+
+	void UciLoop::SendInfo(const std::vector<PvInfo>& infos)
+	{
+		std::vector<std::string> reses;
+		for (const auto& info : infos) {
+			std::string res = "info";
+			if (info.depth >= 0) res += " depth " + std::to_string(info.depth);
+			if (info.time >= 0) res += " time " + std::to_string(info.time);
+			if (info.nodes >= 0) res += " nodes " + std::to_string(info.nodes);
+			
+			if (!info.score.is_mate())
+				res += " score cp " + std::to_string(int(info.score.get_centipawns()));
+			else
+				res += " score mate " + std::to_string(info.score.get_mate_in());
+			
+			if (info.nps >= 0) res += " nps " + std::to_string(info.nps);
+			reses.push_back(std::move(res));
+		}
+		SendResponses(reses);
+	}
+
+	void UciLoop::SendId() {
+		SendResponse("id name Medusa");
+		SendResponse("id author Gregg Hutchence");
+	}
+
+	void UciLoop::CmdUci()
+	{
+		SendResponse("uciok");
+	}
+
+	void UciLoop::CmdIsReady()
+	{
+		engine_.EnsureReady();
+		SendResponse("readyok");
+	}
+
+	void UciLoop::CmdUciNewGame()
+	{
+		engine_.NewGame();
+	}
+
+	void UciLoop::CmdPosition(const std::string& position,
+		const std::vector<std::string>& moves)
+	{
+		std::string fen = position;
+		if (fen.empty()) fen = medusa::start_pos_fen;
+		engine_.SetPosition(fen, moves);
+	}
+
+	void UciLoop::CmdGo(const GoParams& params)
+	{
+		engine_.Go(params);
+	}
+
+	void UciLoop::CmdStop()
+	{
+		engine_.Stop();
+	}
+
+	bool UciLoop::DispatchCommand(
+		const std::string& command,
+		const std::unordered_map<std::string, std::string>& params)
+	{
+		if (command == "uci")
+		{
+			CmdUci();
+		}
+		else if (command == "isready")
+		{
+			CmdIsReady();
+		}
+		else if (command == "ucinewgame")
+		{
+			CmdUciNewGame();
+		}
+		else if (command == "position")
+		{
+			if (ContainsKey(params, "fen") == ContainsKey(params, "startpos")) {
+				throw Exception("Position requires either fen or startpos");
+			}
+			std::vector<std::string> moves =
+				StrSplitAtWhitespace(GetOrEmpty(params, "moves"));
+			CmdPosition(GetOrEmpty(params, "fen"), moves);
+		}
+		else if (command == "go")
+		{
+			GoParams go_params;
+			if (ContainsKey(params, "infinite"))
+			{
+				if (!GetOrEmpty(params, "infinite").empty()) {
+					throw Exception("Unexpected token " + GetOrEmpty(params, "infinite"));
+				}
+				go_params.infinite = true;
+			}
+			if (ContainsKey(params, "searchmoves"))
+			{
+				go_params.searchmoves =
+					StrSplitAtWhitespace(GetOrEmpty(params, "searchmoves"));
+			}
+			if (ContainsKey(params, "ponder"))
+			{
+				if (!GetOrEmpty(params, "ponder").empty()) {
+					throw Exception("Unexpected token " + GetOrEmpty(params, "ponder"));
+				}
+				go_params.ponder = true;
+			}
+
+#define UCIGOOPTION(x)                \
+			if (ContainsKey(params, #x)) {        \
+			go_params.x = GetNumeric(params, #x); \
+			}
+			UCIGOOPTION(wtime);
+			UCIGOOPTION(btime);
+			UCIGOOPTION(winc);
+			UCIGOOPTION(binc);
+			UCIGOOPTION(movestogo);
+			UCIGOOPTION(depth);
+			UCIGOOPTION(nodes);
+			UCIGOOPTION(movetime);
+
+#undef UCIGOOPTION
+			CmdGo(go_params);
+		}
+		else if (command == "stop")
+		{
+			CmdStop();
+		}
+		else if (command == "ponderhit")
+		{
+			SendResponse("Nothing happens.");
+		}
+		else if (command == "start")
+		{
+			SendResponse("Nothing happens.");
+		}
+		else if (command == "xyzzy")
+		{
+			SendResponse("Nothing happens.");
+		}
+		else if (command == "quit")
+		{
+			return false;
+		}
+		else {
+			throw Exception("Unknown command: " + command);
+		}
+		return true;
+	}
+
+	EngineController::EngineController(
+		BestMoveInfo::Callback best_move_callback,
+		PvInfo::Callback info_callback)
+	{
+	}
+	
+	// Blocks.
+	void EngineController::EnsureReady()
+	{
+		std::unique_lock<RpSharedMutex> lock(busy_mutex_);
+		// If a UCI host is waiting for our ready response, we can consider the move
+		// not started until we're done ensuring ready.
+		move_start_time_ = std::chrono::steady_clock::now();
+	}
+
+	// Must not block.
+	void EngineController::NewGame()
+	{
+		// In case anything relies upon defaulting to default position and just calls
+		// newgame and goes straight into go.
+		move_start_time_ = std::chrono::steady_clock::now();
+		SharedLock lock(busy_mutex_);
+		search_.reset();
+		time_spared_ms_ = 0;
+		current_position_.reset();
+	}
+
+	// Blocks.
+	void EngineController::SetPosition(const std::string& fen,
+		const std::vector<std::string>& moves_str)
+	{
+		// Some UCI hosts just call position then immediately call go, while starting
+		// the clock on calling 'position'.
+		move_start_time_ = std::chrono::steady_clock::now();
+		SharedLock lock(busy_mutex_);
+		current_position_ = CurrentPosition{ fen, moves_str };
+		search_.reset();
+	}
+
+	// Must not block.
+	void EngineController::Go(const GoParams& params)
+	{
+		auto start_time = move_start_time_;
+		go_params_ = params;
+
+		PvInfo::Callback info_callback(info_callback_);
+		BestMoveInfo::Callback best_move_callback(best_move_callback_);
+
+		// Setting up current position, now that it's known whether it's ponder or
+		// not.
+		if (current_position_)
+		{
+				SetupPosition(current_position_->fen, current_position_->moves);
+		}
+		else
+		{
+			SetupPosition(medusa::start_pos_fen, {});
+		}
+
+		search_ = std::make_unique<Search>();
+		search_->StartThread(current_position_instance_, go_params_.depth.value_or(2));
+	}
+
+	// Must not block.
+	void EngineController::Stop()
+	{
+		if (search_)
+			search_->stop();
+	}
+
+	// Set up position.
+	void EngineController::SetupPosition(const std::string& fen,
+		const std::vector<std::string>& moves_str)
+	{
+		SharedLock lock(busy_mutex_);
+		search_.reset();
+		
+		current_position_instance_ = position_from_fen(fen);
+		std::vector<Move> moves;
+		for (const auto& move : moves_str) 
+			current_position_instance_.apply_uci(move);
+	}
+}

@@ -2,10 +2,24 @@
 #include "types.h"
 
 #include <stdint.h>
+#include <iomanip>
 #include <iostream>
+#include <cstring>
+#include <cstdio>
+#include <cctype>
 
 namespace medusa
 {
+	// Piece strings
+	const std::string PIECE_STRINGS = "NBRQKP";
+
+	const std::string piece_strings[6] = { "n", "b", "r", "q", "k", "p" };
+
+	std::string piece_string_lower(Piece piece)
+	{
+		return piece_strings[piece];
+	}
+
 	std::string piece_string(Piece piece, Colour c)
 	{
 		auto str = PIECE_STRINGS[piece];
@@ -242,6 +256,113 @@ namespace medusa
 			}
 		}
 
-		std::cout << "Warning: attempted to apply illegal move." << std::endl;
+		std::cout << "Warning: attempted to apply illegal move: " << move_str <<std::endl;
+	}
+
+	std::chrono::time_point<std::chrono::system_clock> SteadyClockToSystemClock(
+		std::chrono::time_point<std::chrono::steady_clock> time) {
+		return std::chrono::system_clock::now() +
+			std::chrono::duration_cast<std::chrono::system_clock::duration>(
+				time - std::chrono::steady_clock::now());
+	}
+
+	std::string FormatTime(
+		std::chrono::time_point<std::chrono::system_clock> time) {
+		std::ostringstream ss;
+		using namespace std::chrono;
+		auto us =
+			duration_cast<microseconds>(time.time_since_epoch()).count() % 1000000;
+		auto timer = std::chrono::system_clock::to_time_t(time);
+		/*
+		ss << std::put_time(std::localtime(&timer), "%m%d %T") << '.'
+			<< std::setfill('0') << std::setw(6) << us;
+		*/
+		return ss.str();
+	}
+
+	std::string StrJoin(const std::vector<std::string>& strings,
+		const std::string& delim) {
+		std::string res;
+		for (const auto& str : strings) {
+			if (!res.empty()) res += delim;
+			res += str;
+		}
+		return res;
+	}
+
+	std::vector<std::string> StrSplitAtWhitespace(const std::string& str) {
+		std::vector<std::string> result;
+		std::istringstream iss(str);
+		std::string tmp;
+		while (iss >> tmp) result.emplace_back(std::move(tmp));
+		return result;
+	}
+
+	std::vector<std::string> StrSplit(const std::string& str,
+		const std::string& delim) {
+		std::vector<std::string> result;
+		for (std::string::size_type pos = 0, next = 0; pos != std::string::npos;
+			pos = next) {
+			next = str.find(delim, pos);
+			result.push_back(str.substr(pos, next - pos));
+			if (next != std::string::npos) next += delim.size();
+		}
+		return result;
+	}
+
+	std::vector<int> ParseIntList(const std::string& str) {
+		std::vector<int> result;
+		for (const auto& x : StrSplit(str, ",")) {
+			result.push_back(std::stoi(x));
+		}
+		return result;
+	}
+
+	std::string LeftTrim(std::string str) {
+		auto it = std::find_if(str.begin(), str.end(),
+			[](int ch) { return !std::isspace(ch); });
+		str.erase(str.begin(), it);
+		return str;
+	}
+
+	std::string RightTrim(std::string str) {
+		auto it = std::find_if(str.rbegin(), str.rend(),
+			[](int ch) { return !std::isspace(ch); });
+		str.erase(it.base(), str.end());
+		return str;
+	}
+
+	std::string Trim(std::string str) {
+		return LeftTrim(RightTrim(std::move(str)));
+	}
+
+	bool StringsEqualIgnoreCase(const std::string& a, const std::string& b) {
+		return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](char a, char b) {
+			return std::tolower(a) == std::tolower(b);
+		});
+	}
+
+	std::vector<std::string> FlowText(const std::string& src, size_t width) {
+		std::vector<std::string> result;
+		auto paragraphs = StrSplit(src, "\n");
+		for (const auto& paragraph : paragraphs) {
+			result.emplace_back();
+			auto words = StrSplit(paragraph, " ");
+			for (const auto& word : words) {
+				if (result.back().empty()) {
+					// First word in line, always add.
+				}
+				else if (result.back().size() + word.size() + 1 > width) {
+					// The line doesn't have space for a new word.
+					result.emplace_back();
+				}
+				else {
+					// Appending to the current line.
+					result.back() += " ";
+				}
+				result.back() += word;
+			}
+		}
+		return result;
 	}
 }

@@ -18,22 +18,7 @@
     <ClInclude Include="bitboard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="eval.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="move_deque.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="move_selector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="position.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="position_searcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="score.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="types.h">
@@ -51,18 +36,21 @@
     <ClInclude Include="benchmark.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="search.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="move.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="evaluation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="move_selector.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="position.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="position_legal_moves.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="search.cpp">
@@ -77,13 +65,13 @@
     <ClCompile Include="medusa.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="eval.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="uci.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="board.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="evaluation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

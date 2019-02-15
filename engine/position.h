@@ -1,16 +1,16 @@
 #ifndef position_h
 #define position_h
 
-#include "bitboard.h"
-#include "types.h"
-#include "board.h"
-
 #include <array>
 #include <functional>
 #include <memory>
 #include <vector>
 #include <set>
 #include <iostream>
+
+#include "bitboard.h"
+#include "board.h"
+#include "types.h"
 
 namespace medusa {
 
@@ -246,6 +246,7 @@ namespace medusa {
 			return ret;
 		}
 	};
+
 
 }
 
