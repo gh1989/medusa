@@ -1,6 +1,7 @@
 #include "uci.h"
 #include "types.h"
 #include "utils.h"
+#include "utils/logging.h"
 
 #include <exception>
 #include <functional>
@@ -95,6 +96,7 @@ namespace medusa {
 		std::string line;
 		while (std::getline(std::cin, line)) {
 			try {
+				LOGFILE << ">>>" << line;
 				auto command = ParseCommand(line);
 				// Ignore empty line.
 				if (command.first.empty()) continue;
@@ -118,6 +120,7 @@ namespace medusa {
 		for (auto& response : responses)
 		{
 			std::cout << response << std::endl;
+			LOGFILE << response;
 		}
 	}
 
@@ -279,6 +282,7 @@ namespace medusa {
 	EngineController::EngineController(
 		BestMoveInfo::Callback best_move_callback,
 		PvInfo::Callback info_callback)
+		: best_move_callback_(best_move_callback), info_callback_(info_callback)
 	{
 	}
 	
@@ -335,8 +339,13 @@ namespace medusa {
 			SetupPosition(medusa::start_pos_fen, {});
 		}
 
+
 		search_ = std::make_unique<Search>();
-		search_->StartThread(current_position_instance_, go_params_.depth.value_or(2));
+		search_->StartThread(
+				current_position_instance_, 
+				go_params_.depth.value_or(2),
+				best_move_callback_,
+				info_callback_);
 	}
 
 	// Must not block.

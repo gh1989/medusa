@@ -24,11 +24,11 @@ namespace medusa
 			int S = 0;
 
 			// Material
-			S += PAWN_SCORE * p.get_piece_bitboard(C, Piece::PAWN).popcnt();
-			S += KNIGHT_SCORE * p.get_piece_bitboard(C, Piece::KNIGHT).popcnt();
-			S += ROOK_SCORE * p.get_piece_bitboard(C, Piece::ROOK).popcnt();
-			S += BISHOP_SCORE * p.get_piece_bitboard(C, Piece::BISHOP).popcnt();
-			S += QUEEN_SCORE * p.get_piece_bitboard(C, Piece::QUEEN).popcnt();
+			S += PAWN_SCORE * p.piecebb(C, Piece::PAWN).popcnt();
+			S += KNIGHT_SCORE * p.piecebb(C, Piece::KNIGHT).popcnt();
+			S += ROOK_SCORE * p.piecebb(C, Piece::ROOK).popcnt();
+			S += BISHOP_SCORE * p.piecebb(C, Piece::BISHOP).popcnt();
+			S += QUEEN_SCORE * p.piecebb(C, Piece::QUEEN).popcnt();
 
 			return S;
 		}
@@ -72,8 +72,8 @@ namespace medusa
 			auto ks_shield = king_side_shield(C);
 			auto qs_shield = queen_side_shield(C);
 
-			auto king = p.get_piece_bitboard(C, Piece::KING);
-			auto pawns = p.get_piece_bitboard(C, Piece::PAWN);
+			auto king = p.piecebb(C, Piece::KING);
+			auto pawns = p.piecebb(C, Piece::PAWN);
 			if ((king & king_side_home(C)).popcnt())
 				S += K * (ks_shield & pawns).popcnt();
 			if ((king & queen_side_home(C)).popcnt())
@@ -100,7 +100,7 @@ namespace medusa
 		int pawn_score(Position &p, GamePhase phase)
 		{
 			int S = 0;
-			auto pawns = p.get_piece_bitboard(C, Piece::PAWN);
+			auto pawns = p.piecebb(C, Piece::PAWN);
 
 			// Doubled pawns
 			for (int file = 0; file < 8; file++)
@@ -133,7 +133,7 @@ namespace medusa
 		{
 			int S = 0;
 			int K = 0;
-			auto knights = p.get_piece_bitboard(C, Piece::KNIGHT);
+			auto knights = p.piecebb(C, Piece::KNIGHT);
 			auto outpost_bb = outposts(C);
 			S += K * (outpost_bb & knights).popcnt();
 			return S;
@@ -144,7 +144,7 @@ namespace medusa
 		{
 			int S = 0;
 			int K = 45;
-			auto bishops = p.get_piece_bitboard(C, Piece::BISHOP);
+			auto bishops = p.piecebb(C, Piece::BISHOP);
 			auto outpost_bb = outposts(C);
 			S += K * (outpost_bb & bishops).popcnt();
 			return S;
@@ -155,7 +155,7 @@ namespace medusa
 		{
 			int S = 0;
 			int K = 50;
-			auto rooks = p.get_piece_bitboard(C, Piece::ROOK);
+			auto rooks = p.piecebb(C, Piece::ROOK);
 			auto occup = p.occupants(C);
 
 			// Rooks on open files, big score for doubled on open files.
@@ -183,14 +183,14 @@ namespace medusa
 
 			auto pawn_rank_idx = C == White ? 1 : 6;
 			auto pawn_rank_bb = ranks[pawn_rank_idx];
-			int unmoved_pawns = (p.get_piece_bitboard(C, Piece::PAWN) & pawn_rank_bb).popcnt();
+			int unmoved_pawns = (p.piecebb(C, Piece::PAWN) & pawn_rank_bb).popcnt();
 			if (unmoved_pawns > 5)
 				return GamePhase::Opening;
 
 			auto back_rank_idx = C == White ? 0 : 7;
 			auto back_rank_bb = ranks[back_rank_idx];
-			auto knights = p.get_piece_bitboard(C, Piece::KNIGHT);
-			auto bishops = p.get_piece_bitboard(C, Piece::BISHOP);
+			auto knights = p.piecebb(C, Piece::KNIGHT);
+			auto bishops = p.piecebb(C, Piece::BISHOP);
 			int undeveloped_pc = ((bishops | knights) & back_rank_bb).popcnt();
 			if (undeveloped_pc > 1)
 				return GamePhase::Opening;
@@ -199,20 +199,64 @@ namespace medusa
 		}
 
 		template<EvalColour C>
+		int pawn_structure(Position &p, GamePhase phase)
+		{
+			int S = 0;
+			auto pawns = p.piecebb(C, Piece::PAWN);
+
+			// Doubled pawns
+			for (int file = 0; file < 8; file++)
+			{
+				int K = 50; // Half a pawn penalty for a doubled pawn.
+				auto file_bb = files[file];
+				int pawns_on_file = (file_bb & pawns).popcnt();
+				S -= std::max(pawns_on_file - 1, 0)*K;
+			}
+
+			return S;
+		}
+
+		template<EvalColour C>
+		int king_safety(Position &p, GamePhase phase)
+		{
+			return king_score<C>(p, phase);
+		}
+
+		template<EvalColour C>
+		int minor_pieces(Position &p, GamePhase phase)
+		{
+			return bishop_score<C>(p, phase) + knight_score<C>(p, phase);
+		}
+
+		template<EvalColour C>
+		int coordination(Position &p, GamePhase phase)
+		{
+			return rook_score<C>(p, phase);
+		}
+
+		template<EvalColour C>
+		int space(Position &p, GamePhase phase)
+		{
+			return 0;
+		}
+
+		template<EvalColour C>
 		int static_score(Position &p)
 		{
 			GamePhase phase = game_phase<C>(p);
-
-			// Material score
 			int S = 0;
-
+			// 1. Material
 			S += material_score<C>(p);
-			S += king_score    <C>(p, phase);
-			S += pawn_score    <C>(p, phase);
-			S += rook_score    <C>(p, phase);
-			S += knight_score  <C>(p, phase);
-			S += bishop_score  <C>(p, phase);
-
+			// 2. Pawn structure
+			S += pawn_structure<C>(p, phase);
+			// 3. King safety
+			S += king_safety<C>(p, phase);
+			// 4. Minor piece long term potential
+			S += minor_pieces<C>(p, phase);
+			// 5. Co-ordination
+			S += coordination<C>(p, phase);
+			// 6. Space
+			S += space<C>(p, phase);
 			return S;
 		}
 

@@ -77,6 +77,41 @@ namespace medusa
 		T value_;
 		bool has_value_ = false;
 	};
+
+	// Apply moves
+	void apply(Position &pos, std::shared_ptr<Variation> md);
+
+	// Unapply moves
+	void unapply(Position &pos, std::shared_ptr<Variation> md);
+
+	// Get line
+	std::string get_line(std::shared_ptr<Variation> md);
+
+	// Print line
+	void print_line(std::shared_ptr<Variation> md);
+
+	// Join line
+	void join(
+		std::shared_ptr<Variation> md,
+		std::shared_ptr<Variation> md_after,
+		Move move);
+
+	// End of line
+	std::shared_ptr<Variation> end(std::shared_ptr<Variation> md);
+
+	// Start of line
+	std::shared_ptr<Variation> begin(std::shared_ptr<Variation> md);
+
+	// Size of line
+	size_t size(std::shared_ptr<Variation> md);
+
+	// Exception.
+	class Exception : public std::runtime_error {
+	public:
+		Exception(const std::string& what) : std::runtime_error(what) {
+		}
+	};
+
 };
 
 #endif

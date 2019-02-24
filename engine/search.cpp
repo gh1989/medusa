@@ -5,6 +5,7 @@
 #include "search.h"
 #include "evaluation.h"
 #include "move.h"
+#include "utils.h"
 
 namespace medusa {
 
@@ -36,9 +37,9 @@ void Search::start(const Position &pos, int max_depth)
 	});
 }
 
-std::shared_ptr<MoveDeque> Search::search_root(Position &pos, int max_depth)
+std::shared_ptr<Variation> Search::search_root(Position &pos, int max_depth)
 {
-	std::shared_ptr<MoveDeque> md(new MoveDeque());
+	std::shared_ptr<Variation> md(new Variation());
 	nodes_searched = 0;
 	search_start_time = std::chrono::system_clock::now();
 	Score alpha = Score::Checkmate(-1);
@@ -50,7 +51,7 @@ std::shared_ptr<MoveDeque> Search::search_root(Position &pos, int max_depth)
 
 Score Search::search(
 	Position &pos,
-	std::shared_ptr<MoveDeque> md, 
+	std::shared_ptr<Variation> md,
 	Score alpha,
 	Score beta,
 	int max_depth )
@@ -60,20 +61,19 @@ Score Search::search(
 		score = -this->search(pos, md, -beta, -alpha, max_depth, 0);
 	else
 		score = this->search(pos, md, alpha, beta, max_depth, 0);
-	std::cout << "bestmove " << as_uci(md->move) << std::endl;
 	return score;
 }
 
 Score Search::search(
 	Position &pos, 
-	std::shared_ptr<MoveDeque> moves_all,
+	std::shared_ptr<Variation> moves_all,
 	Score alpha, 
 	Score beta, 
 	int max_depth, 
 	size_t plies_from_root )
 {
 	if (max_depth < -60)
-		throw;
+		throw; 
 
 	if (!Search::searching_flag)
 		return alpha;
@@ -92,10 +92,13 @@ Score Search::search(
 			alpha = stand_pat;
 	}
 
-	if (!move_selector.any() 
-		|| pos.get_fifty_counter() > 49 
-	    || pos.three_move_repetition()
-		)
+	// Draw
+	if (pos.get_fifty_counter() > 49 || pos.three_move_repetition())
+	{
+		return Score::Centipawns(0, plies_from_root);
+	}
+
+	if (!move_selector.any())
 	{
 		// Checkmate?
 		if (pos.is_checkmate())
@@ -127,7 +130,7 @@ Score Search::search(
 
 		nodes_searched++;
 		auto move = pair.second;
-		std::shared_ptr<MoveDeque> moves_after(new MoveDeque());
+		std::shared_ptr<Variation> moves_after(new Variation());
 		pos.apply(move);
 		score = -this->search(pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
 		pos.unapply(move);
@@ -135,12 +138,15 @@ Score Search::search(
 		// Update the move deque if we have an improvement.
 		if (score > best_score)
 		{
-			MoveDeque::join(moves_all, moves_after, move);
+			join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
 			{
 				auto end = std::chrono::system_clock::now();
 				auto elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
-				Search::print_info(moves_all, score, max_depth, nodes_searched, elapsed.count());
+
+				Mutex::Lock lock(counters_mutex);
+				best_move_info.best_move = move;
+				best_move_info.score = score;			
 			}
 		}
 
@@ -156,27 +162,6 @@ Score Search::search(
 	return alpha;
 }
 
-void Search::print_info(
-	const std::shared_ptr<MoveDeque>& md,
-	Score score,
-	size_t depth,
-	size_t nodes,
-	long long time)
-{
-	double time_seconds = double(time) / 1000;
-	size_t nps = nodes / time_seconds;
-	auto line = MoveDeque::get_line(md);
-	std::cout << "info time " << time << " ";
-	std::cout << "nodes " << nodes << " ";
-	std::cout << "nps " << nps << " ";
-	std::cout << "pv " << line;
-
-	if (!score.is_mate())
-		std::cout << "score cp " << score.get_centipawns() << std::endl;
-	else
-		std::cout << "score mate " << score.get_mate_in() << std::endl;
-}
-
 MoveSelector::MoveSelector(Position& position, bool include_quiet)
 {
 	auto unordered_moves = position.legal_moves();
@@ -185,28 +170,19 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 	int i = 0;
 	for (auto &move : unordered_moves)
 	{
-		// Move promise score
 		int promise = PAWN - position.attacker(move);
-
-		// Exit the loop if actually we are quiescent and this
-		// is a quiet move.
 		bool is_capture = position.is_capture(move);
-
-		// === Apply ===
 		position.apply(move);
-
 		bool is_check = position.in_check();
 
 		if (!include_quiet && !(is_check || is_capture))
 		{
-			// Skip! Remember to unapply the move.
 			position.unapply(move);
 			continue;
 		}
 
 		if (is_check)
 		{
-			// Checkmate...
 			if (!position.any_legal_move())
 			{
 				position.unapply(move);
@@ -218,49 +194,9 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 				promise += 1000;
 		}
 
-		// === Unapply ===
 		position.unapply(move);
 		moves.insert({ -promise, move });
 	};
-}
-
-int MoveSelector::see(Position &pos, Move move)
-{
-	int value = 0;
-
-	// Get smallest attacker capture
-	auto next_moves = pos.legal_moves();
-	auto remove_condition = [pos](Move m) { return pos.was_capture(m); };
-	auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
-	next_moves.erase(to_remove, next_moves.end());
-
-	bool capture_exists = next_moves.size();
-	if (!capture_exists)
-	{
-		return value;
-	}
-
-	// Get the smallest attacker
-	auto next_move = next_moves.back();
-	int smallest_attacker = 100000;
-	for (auto m : next_moves)
-	{
-		int attacker = values[pos.attacker(next_move)];
-		if (attacker <= smallest_attacker)
-		{
-			smallest_attacker = attacker;
-			next_move = m;
-		}
-	}
-
-	// === Apply ====
-	pos.apply(next_move);
-	int capture_value = values[pos.captured(next_move)] - see(pos, next_move);
-	pos.unapply(next_move);
-	// === unapply ====
-
-	value = capture_value > 0 ? capture_value : 0;
-	return value;
 }
 
 }

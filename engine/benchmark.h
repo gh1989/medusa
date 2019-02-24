@@ -6,6 +6,26 @@
 
 namespace medusa
 {
+	void test_promotion_capture()
+	{
+		auto pos = position_from_fen("6r1/7P/p7/Pr6/4pPK1/2k1B3/5P2/8 w - - 0 52");
+		auto legals = pos.legal_pawn_moves(1);
+		for (auto m : legals)
+		{
+			std::cout << as_uci(m) << std::endl;
+		}
+	}
+
+	void test_equality_operator()
+	{
+		std::array<Bitboard, 2> a{ Bitboard(0), Bitboard(1) };
+		std::array<Bitboard, 2> b{ Bitboard(0), Bitboard(2) };
+		if(a==b)
+			std::cout << "(a == b)" << std::endl;
+		else
+			std::cout << "(a != b)" << std::endl;
+	}
+
 	void test_moves_sanity()
 	{
 		Position new_pos = position_from_fen("");

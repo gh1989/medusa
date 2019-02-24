@@ -16,7 +16,7 @@ namespace medusa
 		Bitboard() : bit_number(0) {}
 		Bitboard(uint64_t bit_number_) : bit_number(bit_number_) {}
 		
-		bool operator==(const Bitboard& other)
+		bool operator==(const Bitboard& other) const
 		{
 			return bit_number == other.bit_number;
 		}

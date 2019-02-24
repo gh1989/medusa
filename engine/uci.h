@@ -17,36 +17,6 @@
 
 namespace medusa {
 
-	// Principal variation info
-	struct PvInfo
-	{
-		Move best_move;
-		Score score;
-		int nodes_per_second;
-		int nodes_searched;
-		int time_ms;
-		int game_id = -1;
-		bool is_black;
-		int depth;
-		int seldepth;
-		int time;
-		int nodes;
-		int nps;
-		int tb_hits;
-		int multipv;
-
-		using Callback = std::function<void(const std::vector<PvInfo>&)>;
-	};
-
-	// Best move info
-	struct BestMoveInfo
-	{
-		Move best_move;
-		Score score;
-
-		using Callback = std::function<void(const BestMoveInfo&)>;
-	};
-
 	// Known commands.
 	namespace {
 		const std::unordered_map<std::string, std::unordered_set<std::string>>
@@ -87,33 +57,27 @@ namespace medusa {
 		std::string fen;
 		std::vector<std::string> moves;
 	};
-
+		
 	// Engine controller
 	class EngineController {
 	public:
 		EngineController(
 			BestMoveInfo::Callback best_move_callback,
 			PvInfo::Callback info_callback );
-
 		~EngineController() {
 			// Make sure search is destructed first, and it still may be running in
 			// a separate thread.
 			search_.reset();
 		}
-
 		// Blocks.
 		void EnsureReady();
-
 		// Must not block.
 		void NewGame();
-
 		// Blocks.
 		void SetPosition(const std::string& fen,
 			const std::vector<std::string>& moves);
-
 		// Must not block.
 		void Go(const GoParams& params);
-
 		// Must not block.
 		void Stop();
 

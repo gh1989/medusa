@@ -169,22 +169,30 @@ namespace medusa {
 			return to_move;
 		}
 
-		bool three_move_repetition() const
-		{
-			return false;
+		bool three_move_repetition() const;
+
+		bool operator==(const Position& other) const {
+			bool equal = true;
+			equal &= castling  == other.castling;
+			equal &= enpassant == other.enpassant;
+			equal &= to_move.index() == other.to_move.index();
+			equal &= bitboards == other.bitboards;
+			return equal;
 		}
+
+		bool operator!=(const Position& other) const { return !operator==(other); }
 
 		std::vector<Move> legal_moves();
 		bool any_legal_move();
 
-		Bitboard get_piece_bitboard(Colour colour, Piece piece) const
+		Bitboard piecebb(Colour colour, Piece piece) const
 		{
 			int index = colour.index();
 			return bitboards[index][piece];
 		}
 
 		// Just want to deal with an enum in eval...
-		Bitboard get_piece_bitboard(int index, Piece piece) const
+		Bitboard piecebb(int index, Piece piece) const
 		{
 			return bitboards[index][piece];
 		}
@@ -245,9 +253,33 @@ namespace medusa {
 			history.pop_back();
 			return ret;
 		}
+
+		static bool three_repetitions()
+		{
+			int idx = history.size() - 3;
+			if (idx < 2)
+				return false;
+
+			const auto& last = history.back();
+			
+			// Is only a draw on the last position, can only be 
+			// the same position if its the same players turn.
+			int reps = 1;
+			do 
+			{
+				if (history[idx] == last)
+					reps++;
+				idx = idx - 2;
+			} while (idx > 0 && reps < 3);
+
+			return reps >= 3;	
+		}
 	};
 
-
+	inline bool Position::three_move_repetition() const
+	{
+		return PositionHistory::three_repetitions();
+	}
 }
 
 #endif

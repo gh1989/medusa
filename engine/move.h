@@ -3,8 +3,6 @@
 
 namespace medusa
 {
-	// Move (16 bit int)
-	typedef unsigned short Move;
 	// From
 	constexpr unsigned short to_bits = 6;
 	constexpr unsigned short flag_bits = 12;

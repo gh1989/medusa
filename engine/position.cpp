@@ -321,12 +321,12 @@ namespace medusa
 		Colour us = to_move;
 		Colour them = ~to_move;
 
-		auto king = this->get_piece_bitboard(us, KING);
+		auto king = this->piecebb(us, KING);
 		bool check_discovered = check_discovered_;
 
-		auto their_rooks = this->get_piece_bitboard(them, ROOK);
-		auto their_queens = this->get_piece_bitboard(them, QUEEN);
-		auto their_bishops = this->get_piece_bitboard(them, BISHOP);
+		auto their_rooks = this->piecebb(them, ROOK);
+		auto their_queens = this->piecebb(them, QUEEN);
+		auto their_bishops = this->piecebb(them, BISHOP);
 
 		if (this->attacker(move) == KING)
 			check_discovered = true;

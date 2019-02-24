@@ -132,6 +132,7 @@
     <ClInclude Include="types.h" />
     <ClInclude Include="uci.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="utils\logging.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.cpp" />
@@ -143,6 +144,7 @@
     <ClCompile Include="types.cpp" />
     <ClCompile Include="uci.cpp" />
     <ClCompile Include="utils.cpp" />
+    <ClCompile Include="utils\logging.cc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

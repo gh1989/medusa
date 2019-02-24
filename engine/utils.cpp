@@ -273,10 +273,7 @@ namespace medusa
 		auto us =
 			duration_cast<microseconds>(time.time_since_epoch()).count() % 1000000;
 		auto timer = std::chrono::system_clock::to_time_t(time);
-		/*
-		ss << std::put_time(std::localtime(&timer), "%m%d %T") << '.'
-			<< std::setfill('0') << std::setw(6) << us;
-		*/
+		ss << timer << '.' << std::setfill('0') << std::setw(6) << us;
 		return ss.str();
 	}
 
@@ -365,4 +362,106 @@ namespace medusa
 		}
 		return result;
 	}
+
+	void apply(Position &pos, std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = md;
+
+		// Go forward.
+		while (tmp->after != nullptr)
+		{
+			pos.apply(tmp->move);
+			tmp = tmp->after;
+		}
+	}
+
+	void unapply(Position &pos, std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = end(md);
+
+		// Go back.
+		while (tmp->before != nullptr)
+		{
+			tmp = tmp->before;
+			pos.unapply(tmp->move);
+		};
+	}
+
+	std::string get_line(std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = md;
+		std::stringstream ss;
+
+		while (tmp->before != nullptr)
+			tmp = tmp->before;
+
+		while (tmp->after != nullptr)
+		{
+			ss << as_uci(tmp->move) << " ";
+			tmp = tmp->after;
+		}
+
+		return ss.str();
+	};
+
+	void print_line(std::shared_ptr<Variation> md)
+	{
+		std::cout << get_line(md) << std::endl;
+	};
+
+
+	void join(
+		std::shared_ptr<Variation> md,
+		std::shared_ptr<Variation> md_after,
+		Move move)
+	{
+		md_after->before = md;
+		md->after = md_after;
+		md->move = move;
+	}
+
+	std::shared_ptr<Variation> end(std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = md;
+
+		// Go forward.
+		while (tmp->after != nullptr)
+		{
+			tmp = tmp->after;
+		}
+
+		return tmp;
+	}
+
+	std::shared_ptr<Variation> begin(std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = md;
+
+		// Go backward.
+		while (tmp->before != nullptr)
+		{
+			tmp = tmp->before;
+		}
+
+		return tmp;
+	}
+
+	size_t size(std::shared_ptr<Variation> md)
+	{
+		std::shared_ptr<Variation> tmp = md;
+		size_t sz = 0;
+
+		while (tmp->before != nullptr)
+			tmp = tmp->before;
+
+		while (tmp->after != nullptr)
+		{
+			tmp = tmp->after;
+			sz++;
+		}
+
+		return sz;
+	}
+
+
 }
