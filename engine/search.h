@@ -17,6 +17,8 @@
 
 #include "position.h"
 #include "move.h"
+#include "utils.h"
+#include "evaluation.h"
 
 namespace medusa 
 {
@@ -36,6 +38,7 @@ namespace medusa
 			PvInfo::Callback info_callback)
 		{
 			searching_flag = true;
+			set_info_callback(info_callback);
 			threads.emplace_back(
 				[this, pos, max_depth, bestmove_callback, info_callback]
 			{
@@ -125,6 +128,8 @@ namespace medusa
 		Mutex threads_mutex;
 		std::atomic<bool> stop_{ false };
 		BestMoveInfo best_move_info;
+		void set_info_callback(PvInfo::Callback info_callback_) { info_callback = info_callback_; }
+		PvInfo::Callback info_callback;
 };
 
 	const int CHCK_PRI = 1000.0;
@@ -142,6 +147,46 @@ namespace medusa
 	private:
 		std::multimap<int, Move> moves;
 	};
+	   
+	inline int MoveSelector::see(Position &pos, Move move)
+	{
+		int value = 0;
+
+		// Get smallest attacker capture
+		auto next_moves = pos.legal_moves<Capture>();
+		auto remove_condition = [pos](Move m) { return !pos.is_capture(m); };
+		auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
+		next_moves.erase(to_remove, next_moves.end());
+
+		bool capture_exists = next_moves.size();
+		if (!capture_exists)
+		{
+			return value;
+		}
+
+		// Get the smallest attacker
+		auto next_move = next_moves.back();
+		int smallest_attacker = 100000;
+		for (auto m : next_moves)
+		{
+			int attacker = values[pos.attacker(next_move)];
+			if (attacker <= smallest_attacker)
+			{
+				smallest_attacker = attacker;
+				next_move = m;
+			}
+		}
+
+		// === Apply ====
+		auto captured = pos.captured(next_move);
+		pos.apply(next_move);
+		int capture_value = values[captured] - see(pos, next_move);
+		pos.unapply(next_move);
+		// === unapply ====
+
+		value = capture_value > 0 ? capture_value : 0;
+		return value;
+	}
 }
 
 #endif

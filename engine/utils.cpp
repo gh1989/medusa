@@ -244,7 +244,7 @@ namespace medusa
 	// Apply UCI move to the position.
 	void Position::apply_uci(std::string move_str)
 	{
-		auto moves = legal_moves();
+		auto moves = legal_moves<Any>();
 
 		for (auto m : moves)
 		{

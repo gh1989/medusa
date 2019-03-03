@@ -10,6 +10,20 @@
 
 namespace medusa
 {
+	template<class T>
+	class BitIterator {
+	public:
+		BitIterator(uint64_t value) : value_(value) {};
+		bool operator!=(const BitIterator& other) {
+			return value_ != other.value_;
+		}
+		void operator++() { value_ &= (value_ - 1); }
+		unsigned int operator*() const { return value_.lsb_n(); }
+
+	private:
+		T value_;
+	};
+		
 	class Bitboard
 	{
 	public:
@@ -51,6 +65,16 @@ namespace medusa
 			return Bitboard(bit_number ^ other.bit_number);
 		}
 
+		Bitboard operator- (int value) const
+		{
+			return bit_number - value;
+		}
+	
+		void operator &= (const Bitboard& other)
+		{
+			bit_number &= other.bit_number;
+		}
+
 		operator bool() const
 		{
 			return bit_number != 0;
@@ -60,6 +84,7 @@ namespace medusa
 		{
 			return __popcnt64(bit_number);
 		}
+
 		// returns the position of the most significant bit
 		unsigned int msb_n() const
 		{
@@ -71,6 +96,23 @@ namespace medusa
 				msb_val >>= 1;
 			}
 			return msb_num;
+		}
+
+		unsigned int lsb_n() const
+		{
+			unsigned long result;
+			_BitScanForward64(&result, bit_number);
+			return result;
+		}
+
+		BitIterator<Bitboard> begin()
+		{
+			return bit_number; 
+		}
+		
+		BitIterator<Bitboard> end()
+		{
+			return 0;
 		}
 
 	private:
@@ -89,9 +131,9 @@ namespace medusa
 		uint64_t bit_number;
 	};
 
+
 	Bitboard rotate180(Bitboard bb);
 	uint64_t _byteswap(uint64_t to_swap);
-
 };
 
 #endif

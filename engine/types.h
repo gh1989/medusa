@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+
 namespace medusa
 {
 	// Move (16 bit int)
@@ -69,7 +70,7 @@ namespace medusa
 	// Principal variation info
 	struct PvInfo
 	{
-		Variation pv;
+		std::shared_ptr<Variation> pv;
 		Score score;
 		int nodes_per_second;
 		int nodes_searched;

@@ -3,9 +3,7 @@
 #include <functional>
 
 #include "search.h"
-#include "evaluation.h"
 #include "move.h"
-#include "utils.h"
 
 namespace medusa {
 
@@ -17,7 +15,7 @@ size_t Search::perft(Position &position, size_t max_depth)
 		return 1;
 
 	size_t nodes = 0;
-	auto pseudo_legals = position.pseudo_legal_moves();
+	auto pseudo_legals = position.pseudo_legal_moves<Any>();
 	for (auto m : pseudo_legals)
 	{
 		position.apply(m);
@@ -54,7 +52,7 @@ Score Search::search(
 	std::shared_ptr<Variation> md,
 	Score alpha,
 	Score beta,
-	int max_depth )
+	int max_depth)
 {
 	Score score;
 	if (pos.colour_to_move().is_black())
@@ -135,7 +133,7 @@ Score Search::search(
 		score = -this->search(pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
 		pos.unapply(move);
 
-		// Update the move deque if we have an improvement.
+		// Update the move variation if we have an improvement.
 		if (score > best_score)
 		{
 			join(moves_all, moves_after, move);
@@ -146,7 +144,14 @@ Score Search::search(
 
 				Mutex::Lock lock(counters_mutex);
 				best_move_info.best_move = move;
-				best_move_info.score = score;			
+				best_move_info.score = score;
+
+				PvInfo pv_info;
+				pv_info.depth = max_depth;
+				pv_info.score = score;
+				pv_info.pv = moves_all;
+				std::vector<PvInfo> infos{ pv_info };
+				info_callback(infos);
 			}
 		}
 
@@ -164,13 +169,15 @@ Score Search::search(
 
 MoveSelector::MoveSelector(Position& position, bool include_quiet)
 {
-	auto unordered_moves = position.legal_moves();
+	auto unordered_moves = include_quiet ? position.legal_moves<Any>() : position.legal_moves<Capture>();
 	auto colour = position.colour_to_move();
 
 	int i = 0;
 	for (auto &move : unordered_moves)
 	{
-		int promise = PAWN - position.attacker(move);
+		auto pc = position.attacker(move);
+		auto from_square = from(move);
+		int promise = PAWN - pc;
 		bool is_capture = position.is_capture(move);
 		position.apply(move);
 		bool is_check = position.in_check();
@@ -191,12 +198,20 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 				break;
 			}
 			else
-				promise += 1000;
+				promise += 100;
 		}
+
+		// Needs to be a good reason to move a piece twice.
+		if (position.last_moved( pc, from_square) )
+			promise -= 10;
+
+		/*
+		if (is_capture)
+			promise += see(position, move);
+		*/
 
 		position.unapply(move);
 		moves.insert({ -promise, move });
 	};
 }
-
 }

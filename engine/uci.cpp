@@ -143,8 +143,9 @@ namespace medusa {
 				res += " score cp " + std::to_string(int(info.score.get_centipawns()));
 			else
 				res += " score mate " + std::to_string(info.score.get_mate_in());
-			
 			if (info.nps >= 0) res += " nps " + std::to_string(info.nps);
+
+			res += " pv " + get_line(info.pv);
 			reses.push_back(std::move(res));
 		}
 		SendResponses(reses);
