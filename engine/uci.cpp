@@ -337,8 +337,8 @@ namespace medusa {
 		int cinc  = us.is_black() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
 		int emoves = std::max((100 - current_position_instance_.get_plies())/2, 10);
 		int etime = ctime + emoves * cinc;
-		int stime = etime / emoves;
-		std::cout << "Expect: moves left:" << emoves << " time per move (ms): " << stime << std::endl;
+		int stime = std::max(etime / emoves, 1000);
+		LOGFILE << "Time per move (ms): " << stime << std::endl;
 
 		PvInfo::Callback info_callback(info_callback_);
 		BestMoveInfo::Callback best_move_callback(best_move_callback_);
@@ -353,7 +353,7 @@ namespace medusa {
 		search_ = std::make_unique<Search>();
 		search_->StartThread(
 				current_position_instance_, 
-				go_params_.depth.value_or(2),
+				go_params_.depth.value_or(6),
 				best_move_callback_,
 				info_callback_,
 				stime);

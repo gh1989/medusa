@@ -78,9 +78,7 @@ Score Search::search(
 		searching_flag = false;
 
 	if (!searching_flag)
-	{
 		return alpha;
-	}
 	bool qsearch = max_depth <= 0;
 
 	MoveSelector move_selector(pos, !qsearch);
@@ -98,9 +96,7 @@ Score Search::search(
 
 	// Draw
 	if (pos.get_fifty_counter() > 49 || pos.three_move_repetition())
-	{
 		return Score::Centipawns(0, plies_from_root);
-	}
 
 	if (!move_selector.any())
 	{
@@ -124,11 +120,15 @@ Score Search::search(
 	
 	// The worst possible score in which we are getting mated in a single move.
 	Score best_score = Score::Checkmate(-1);
+	Move best_move;
 	Score score;
-
-	for (auto pair : move_selector.get_moves())
+	std::vector<PvInfo> infos;
+	auto moves = move_selector.get_moves();
+	nodes_searched += moves.size();
+	for (auto pair : moves)
 	{
-		nodes_searched++;
+		if (!searching_flag)
+			break;
 		auto move = pair.second;
 		std::shared_ptr<Variation> moves_after(new Variation());
 		pos.apply(move);
@@ -138,25 +138,23 @@ Score Search::search(
 		// Update the move variation if we have an improvement.
 		if (score > best_score)
 		{
+			best_score = score;
 			join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
 			{
-				Mutex::Lock lock(counters_mutex);
-				// Since we do a hard break... do not want to update anything in here if
-				// we are no longer searching... if we broke a search then the results are
-				// potentially garbage. Though should ensure that there is actually a best_move
-				// here.
-				if (searching_flag && (score > best_move_info.score) || best_move_info.best_move == 0)
-				{
-					best_move_info.best_move = move;
-					best_move_info.score = score;
+				best_move = move;
+				PvInfo pv_info;
+				pv_info.depth = max_depth;
+				pv_info.score = score;
+				pv_info.pv = moves_all;
+				pv_info.nodes = nodes_searched;
+				infos.push_back(pv_info);
 
-					PvInfo pv_info;
-					pv_info.depth = max_depth;
-					pv_info.score = score;
-					pv_info.pv = moves_all;
-					std::vector<PvInfo> infos{ pv_info };
-					info_callback(infos);
+				if (!best_move_info.best_move)
+				{
+					best_move_info.best_move = best_move;
+					best_move_info.score = best_score;
+					best_move_info.depth = max_depth;
 				}
 			}
 		}
@@ -169,15 +167,24 @@ Score Search::search(
 			break;
 
 	}
-
-
+	
+	// Update best move if we made it back to root in time.
+	if (plies_from_root == 0)
+	if (searching_flag && (best_score >= best_move_info.score))
+	{
+		Mutex::Lock lock(counters_mutex);
+		best_move_info.best_move = best_move;
+		best_move_info.score = best_score;
+		best_move_info.depth = max_depth;
+		info_callback(infos);
+	}
 
 	return alpha;
 }
 
 MoveSelector::MoveSelector(Position& position, bool include_quiet)
 {
-	auto unordered_moves = include_quiet ? position.legal_moves<Any>() : position.legal_moves<Capture>();
+	auto unordered_moves = position.legal_moves<Any>();
 	auto colour = position.colour_to_move();
 
 	int i = 0;

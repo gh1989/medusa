@@ -93,6 +93,7 @@ namespace medusa
 	{
 		Move best_move = 0;
 		Score score;
+		unsigned int depth = 0;
 
 		using Callback = std::function<void(const BestMoveInfo&)>;
 	};

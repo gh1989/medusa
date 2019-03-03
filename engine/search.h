@@ -43,12 +43,12 @@ namespace medusa
 			search_start_time = std::chrono::system_clock::now();
 			search_time_limit = std::max(time_limit, 200);
 
+			
 			threads.emplace_back(
 				[this, pos, max_depth, bestmove_callback]
 			{
 				auto cpos = pos;
-
-				for(int d = 1; d <= max_depth, searching_flag; d++)
+				for (int d = std::min(1, max_depth); d <= max_depth, searching_flag; d++)
 					search_root(cpos, d);
 
 				bestmove_callback(best_move_info);
