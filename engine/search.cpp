@@ -39,7 +39,6 @@ std::shared_ptr<Variation> Search::search_root(Position &pos, int max_depth)
 {
 	std::shared_ptr<Variation> md(new Variation());
 	nodes_searched = 0;
-	search_start_time = std::chrono::system_clock::now();
 	Score alpha = Score::Checkmate(-1);
 	Score beta  = Score::Checkmate(1);
 	this->search(pos, md, alpha, beta, max_depth);
@@ -63,18 +62,25 @@ Score Search::search(
 }
 
 Score Search::search(
-	Position &pos, 
+	Position &pos,
 	std::shared_ptr<Variation> moves_all,
-	Score alpha, 
-	Score beta, 
-	int max_depth, 
-	size_t plies_from_root )
+	Score alpha,
+	Score beta,
+	int max_depth,
+	size_t plies_from_root)
 {
 	if (max_depth < -60)
-		throw; 
+		throw;
 
-	if (!Search::searching_flag)
+	auto end = std::chrono::system_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
+	if (elapsed.count() >= search_time_limit)
+		searching_flag = false;
+
+	if (!searching_flag)
+	{
 		return alpha;
+	}
 	bool qsearch = max_depth <= 0;
 
 	MoveSelector move_selector(pos, !qsearch);
@@ -122,10 +128,6 @@ Score Search::search(
 
 	for (auto pair : move_selector.get_moves())
 	{
-		// To get out of searching
-		if (!Search::searching_flag)
-			break;
-
 		nodes_searched++;
 		auto move = pair.second;
 		std::shared_ptr<Variation> moves_after(new Variation());
@@ -139,19 +141,23 @@ Score Search::search(
 			join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
 			{
-				auto end = std::chrono::system_clock::now();
-				auto elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
-
 				Mutex::Lock lock(counters_mutex);
-				best_move_info.best_move = move;
-				best_move_info.score = score;
+				// Since we do a hard break... do not want to update anything in here if
+				// we are no longer searching... if we broke a search then the results are
+				// potentially garbage. Though should ensure that there is actually a best_move
+				// here.
+				if (searching_flag && (score > best_move_info.score) || best_move_info.best_move == 0)
+				{
+					best_move_info.best_move = move;
+					best_move_info.score = score;
 
-				PvInfo pv_info;
-				pv_info.depth = max_depth;
-				pv_info.score = score;
-				pv_info.pv = moves_all;
-				std::vector<PvInfo> infos{ pv_info };
-				info_callback(infos);
+					PvInfo pv_info;
+					pv_info.depth = max_depth;
+					pv_info.score = score;
+					pv_info.pv = moves_all;
+					std::vector<PvInfo> infos{ pv_info };
+					info_callback(infos);
+				}
 			}
 		}
 
@@ -163,6 +169,8 @@ Score Search::search(
 			break;
 
 	}
+
+
 
 	return alpha;
 }

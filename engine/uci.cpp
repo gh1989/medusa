@@ -324,7 +324,21 @@ namespace medusa {
 	void EngineController::Go(const GoParams& params)
 	{
 		auto start_time = move_start_time_;
+
+
+		// Given wtime, btime, winc, binc manage the time. Simple model for this
+		// is to estimate the number of moves left in the game, then expected total
+		// time is expected_moves * [w/b]inc + [w/b]time and time per move should be
+		// that divided by expected_moves. If time ever goes below 20 seconds then we
+		// should use [w/b]inc. 
 		go_params_ = params;
+		auto us = current_position_instance_.colour_to_move();
+		int ctime = us.is_black() ? go_params_.btime.value_or(0) : go_params_.wtime.value_or(0);
+		int cinc  = us.is_black() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
+		int emoves = std::max((100 - current_position_instance_.get_plies())/2, 10);
+		int etime = ctime + emoves * cinc;
+		int stime = etime / emoves;
+		std::cout << "Expect: moves left:" << emoves << " time per move (ms): " << stime << std::endl;
 
 		PvInfo::Callback info_callback(info_callback_);
 		BestMoveInfo::Callback best_move_callback(best_move_callback_);
@@ -332,21 +346,17 @@ namespace medusa {
 		// Setting up current position, now that it's known whether it's ponder or
 		// not.
 		if (current_position_)
-		{
 				SetupPosition(current_position_->fen, current_position_->moves);
-		}
 		else
-		{
 			SetupPosition(medusa::start_pos_fen, {});
-		}
-
 
 		search_ = std::make_unique<Search>();
 		search_->StartThread(
 				current_position_instance_, 
 				go_params_.depth.value_or(2),
 				best_move_callback_,
-				info_callback_);
+				info_callback_,
+				stime);
 	}
 
 	// Must not block.

@@ -35,15 +35,22 @@ namespace medusa
 			Position &pos,
 			int max_depth,
 			BestMoveInfo::Callback bestmove_callback,
-			PvInfo::Callback info_callback)
+			PvInfo::Callback info_callback_,
+			int time_limit)
 		{
 			searching_flag = true;
-			set_info_callback(info_callback);
+			info_callback = info_callback_;
+			search_start_time = std::chrono::system_clock::now();
+			search_time_limit = std::max(time_limit, 200);
+
 			threads.emplace_back(
-				[this, pos, max_depth, bestmove_callback, info_callback]
+				[this, pos, max_depth, bestmove_callback]
 			{
 				auto cpos = pos;
-				search_root(cpos, max_depth);
+
+				for(int d = 1; d <= max_depth, searching_flag; d++)
+					search_root(cpos, d);
+
 				bestmove_callback(best_move_info);
 				Mutex::Lock lock(counters_mutex);
 				bestmove_is_sent = true;
@@ -119,6 +126,7 @@ namespace medusa
 		std::thread thread;
 		size_t nodes_searched;
 		std::chrono::system_clock::time_point search_start_time;
+		int search_time_limit;
 		bool first_leaf;
 		mutable Mutex counters_mutex;
 		bool bestmove_is_sent GUARDED_BY(counters_mutex) = false;
@@ -128,7 +136,6 @@ namespace medusa
 		Mutex threads_mutex;
 		std::atomic<bool> stop_{ false };
 		BestMoveInfo best_move_info;
-		void set_info_callback(PvInfo::Callback info_callback_) { info_callback = info_callback_; }
 		PvInfo::Callback info_callback;
 };
 

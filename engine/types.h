@@ -91,7 +91,7 @@ namespace medusa
 	// Best move info
 	struct BestMoveInfo
 	{
-		Move best_move;
+		Move best_move = 0;
 		Score score;
 
 		using Callback = std::function<void(const BestMoveInfo&)>;
