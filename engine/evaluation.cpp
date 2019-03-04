@@ -26,24 +26,36 @@ namespace medusa
 		int pawn_structure(Position &p, GamePhase phase)
 		{
 			int score = 0;
+			auto pawns = p.piecebb(C, PAWN);
 
 			// Push pawns and get good pawn structure.
 			if (phase != Endgame)
 			{
 				// pawn structure: unmoved pawns
 				score -= 10 * unmovedpawns<C>(p);
+
+				// control the centre
+				score += 10 * (BB_CTR_SQR & pawns).popcnt();
 			}
 
-			auto pawns = p.piecebb(C, PAWN);
 			for (auto it = pawns.begin(); it != pawns.end(); it.operator++())
 			{
 				auto sqr = Square(*it);
 				auto pwnbb = sqrbb(sqr);
 				auto file = sqr % 8;
+				auto rank = sqr / 8;
 				auto filebb = files[file];
 
 				// pawn structure: doubled pawns
 				score -= 10 * (pawns & filebb & (~pwnbb)).popcnt();
+
+				// Advanced pawns
+				if (phase == Endgame)
+				{
+					// Rank goes from 0 to 7, make it symmetric
+					int m = (C == White) ? 1 : -1;
+					score += m * (rank - 3) * 10;
+				}
 			}
 
 			return score;
@@ -106,6 +118,35 @@ namespace medusa
 			if (phase == Middlegame)
 			{
 				score -= 10 * undeveloped;
+
+				// Knight on advanced outpost unable to be moved since
+				// no pawns in the neighbouring files can move towards.
+				// Opposite knight not currently attacking the square.
+				auto knightsctr = p.piecebb(C, KNIGHT) & BB_CTR_SQR;
+				auto them = ~get<C>();
+				auto theirpawns = p.piecebb(them, PAWN);
+				auto theirknights = p.piecebb(them, KNIGHT);
+				for (auto it = knightsctr.begin(); it != knightsctr.end(); it.operator++())
+				{
+					auto sqridx = *it;
+					auto sqr = Square(sqridx);
+					auto fidx = sqridx % 8;
+					auto ridx = sqridx / 8;
+					bool no_pawns = true;
+					Bitboard ranksahead = 0;
+					int dir = (C == White) ? 1 : -1;
+					for (int ridx2 = ridx+dir; ridx2 > 0 && ridx2 < 7; ridx2 += dir)
+						ranksahead = ranksahead | ranks[ridx2];
+					theirpawns &= ranksahead;
+					if (fidx > 0)
+						no_pawns &= !(files[fidx - 1] & theirpawns);
+					if (fidx < 7)
+						no_pawns &= !(files[fidx + 1] & theirpawns);
+					
+					// No knight attacking the square and no pawns can kick.
+					if (!(knight_attacks[sqr] & theirknights) && no_pawns)
+						score += 15;
+				}
 			}
 
 			// 3. In the endgame calculate nothing, apart from trapped pieces
@@ -168,8 +209,32 @@ namespace medusa
 		template<EvalColour C>
 		int coordination(Position &p, GamePhase phase)
 		{
-			// TODO: ...
-			return 0;
+			int score = 0;
+			auto us = get<C>();
+			auto them = ~us;
+			auto occus = p.occupants(us);
+			auto occthem = p.occupants(them);
+			auto rooks = p.piecebb(C, ROOK);
+			if (phase != Endgame)
+			{
+				auto usnorooks = occus & ~(rooks);
+				// Rook on open files / doubled
+				for (auto it = rooks.begin(); it != rooks.end(); it.operator++())
+				{
+					auto sqr = *it;
+					auto rbb = sqrbb(Square(sqr));
+					auto fidx = sqr % 8;
+					auto fbb = files[fidx];
+					if (!(usnorooks & occus & fbb))
+					{
+						score += 10;
+						if (!(occthem & fbb))
+							score += 15;
+					}
+				}
+			}
+
+			return score;
 		}
 
 		template<EvalColour C>

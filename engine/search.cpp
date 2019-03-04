@@ -119,7 +119,7 @@ Score Search::search(
 	}
 	
 	// The worst possible score in which we are getting mated in a single move.
-	Score best_score = Score::Checkmate(-1);
+	Score best_score = -Score::Infinite();
 	Move best_move;
 	Score score;
 	std::vector<PvInfo> infos;
@@ -219,11 +219,6 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 		// Needs to be a good reason to move a piece twice.
 		if (position.last_moved( pc, from_square) )
 			promise -= 10;
-
-		/*
-		if (is_capture)
-			promise += see(position, move);
-		*/
 
 		position.unapply(move);
 		moves.insert({ -promise, move });

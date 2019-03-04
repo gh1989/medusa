@@ -45,6 +45,7 @@ namespace medusa
 		Score();
 		static Score Checkmate(size_t number);
 		static Score Centipawns(int centipawns, int depth);
+		static Score Infinite();
 		bool operator==(const Score& rhs) const;
 		bool operator<(const Score& rhs) const;
 		bool operator!=(const Score& rhs) const;
@@ -60,11 +61,11 @@ namespace medusa
 		Score operator+(int centipawns) const;
 
 	private:
-
 		bool unavoidable_mate;
 		int mate_in;
 		int centipawns_for;
 		int depth;
+		int infinite = 0;
 	};
 
 	// Principal variation info

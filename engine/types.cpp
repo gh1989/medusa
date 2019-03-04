@@ -33,6 +33,13 @@ namespace medusa
 		return score;
 	}
 
+	Score Score::Infinite()
+	{
+		Score score;
+		score.infinite = 1;
+		return score;
+	}
+
 	bool Score::operator==(const Score& rhs) const
 	{
 		return (rhs.unavoidable_mate == unavoidable_mate) && (rhs.mate_in == mate_in) && (rhs.centipawns_for == centipawns_for);
@@ -43,6 +50,14 @@ namespace medusa
 	{
 		bool lhs_mating = mate_in > 0;
 		bool rhs_mating = rhs.mate_in > 0;
+
+		if (rhs.infinite != 0)
+			// RHS = inf so LHS < RHS
+			return rhs.infinite > 0; 
+
+		if (infinite != 0)
+			// LHS = -inf so LHS < RHS
+			return infinite < 0;
 
 		// If one is unavoidable mate and the other is not it matters whether being mated.
 		if (rhs.unavoidable_mate && !unavoidable_mate)
@@ -123,25 +138,30 @@ namespace medusa
 		return depth;
 	}
 
+	// Negative, infinite is negative infinite.
 	Score Score::operator-() const {
 		Score negative_score;
 		negative_score.mate_in = -mate_in;
 		negative_score.centipawns_for = -centipawns_for;
 		negative_score.unavoidable_mate = unavoidable_mate;
 		negative_score.depth = depth;
+		negative_score.infinite = -infinite;
 		return negative_score;
 	}
 
+	// Subtract centipawns (infinite is still infinite)
 	Score Score::operator-(int centipawns) const {
 		return *this + (-centipawns);
 	}
 
+	// Add centipawns, does not affect infinite.
 	Score Score::operator+(int centipawns) const {
 		Score new_score;
 		new_score.mate_in = mate_in;
 		new_score.centipawns_for = centipawns_for + centipawns;
 		new_score.unavoidable_mate = unavoidable_mate;
 		new_score.depth = depth;
+		new_score.infinite = infinite;
 		return new_score;
 	}
 };

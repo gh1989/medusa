@@ -270,9 +270,11 @@ namespace medusa
 	// Useful parts of the board
 	// -------------------------
 	// The outer rim
-	const Bitboard BB_RIM = Bitboard(0xff818181818181ff);
+	const Bitboard BB_RIM = 0xff818181818181ff;
 	// The central files
-	const Bitboard BB_CTR = Bitboard(0X383c3c3c3c3c3c38);
+	const Bitboard BB_CTR = 0X383c3c3c3c3c3c38;
+	// The centre of the board
+	const Bitboard BB_CTR_SQR = 0x3c3c000000;
 
 	// Square functions
 	// ---------------
