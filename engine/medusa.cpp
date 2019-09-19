@@ -4,7 +4,7 @@
 #include "benchmark.h"
 #include "utils/logging.h"
 #include "uci.h"
-
+#include "tree.h"
 
 using namespace medusa;
 
@@ -14,9 +14,8 @@ int main()
 	auto now = std::chrono::system_clock::now();
 	auto filename = "medusa_" + FormatTime(now) + ".txt";
 	Logging::Get().SetFilename(filename);
-
+	
 	// UCI loop
 	UciLoop uci_loop;
 	uci_loop.RunLoop();
-	return 0;
 }

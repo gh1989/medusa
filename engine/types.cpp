@@ -42,7 +42,7 @@ namespace medusa
 
 	bool Score::operator==(const Score& rhs) const
 	{
-		return (rhs.unavoidable_mate == unavoidable_mate) && (rhs.mate_in == mate_in) && (rhs.centipawns_for == centipawns_for);
+		return (infinite == rhs.infinite) && (rhs.unavoidable_mate == unavoidable_mate) && (rhs.mate_in == mate_in) && (rhs.centipawns_for == centipawns_for);
 	}
 	
 	// LHS < RHS if LHS is a worse score (faster mate or lower centipawns)
@@ -51,13 +51,21 @@ namespace medusa
 		bool lhs_mating = mate_in > 0;
 		bool rhs_mating = rhs.mate_in > 0;
 
-		if (rhs.infinite != 0)
-			// RHS = inf so LHS < RHS
-			return rhs.infinite > 0; 
+		// RHS = inf so LHS < RHS
+		if (rhs.infinite > 0)
+			return true;
 
-		if (infinite != 0)
-			// LHS = -inf so LHS < RHS
-			return infinite < 0;
+		// LHS = -inf so LHS < RHS
+		if (infinite < 0)
+			return true;
+
+		// RHS = -inf so LHS > RHS
+		if (rhs.infinite < 0)
+			return false;
+
+		// LHS = inf so LHS > RHS
+		if (infinite > 0)
+			return false;
 
 		// If one is unavoidable mate and the other is not it matters whether being mated.
 		if (rhs.unavoidable_mate && !unavoidable_mate)

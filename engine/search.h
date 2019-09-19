@@ -19,6 +19,7 @@
 #include "move.h"
 #include "utils.h"
 #include "evaluation.h"
+#include "parameters.h"
 
 namespace medusa 
 {
@@ -48,13 +49,40 @@ namespace medusa
 				[this, pos, max_depth, bestmove_callback]
 			{
 				auto cpos = pos;
-				for (int d = std::min(1, max_depth); d <= max_depth, searching_flag; d++)
+				for (int d = std::min(1, max_depth); (d <= std::min(10, max_depth)) && searching_flag; d++)
 					search_root(cpos, d);
 
 				bestmove_callback(best_move_info);
 				Mutex::Lock lock(counters_mutex);
 				bestmove_is_sent = true;
 			});
+		}
+
+		void StartSelfPlay(
+			Position &pos,
+			int depth,
+			BestMoveInfo::Callback bestmove_callback,
+			PvInfo::Callback info_callback_,
+			int time_limit
+		)
+		{
+			searching_flag = true;
+			info_callback = info_callback_;
+
+			auto cpos = pos;
+
+			while (cpos.any_legal_move())
+			{
+				searching_flag = true;
+				search_start_time = std::chrono::system_clock::now();
+				search_time_limit = std::max(time_limit, 200);
+				auto m = search_root(cpos, depth);
+				cpos.apply(m->move);
+				cpos.pp();
+			};
+			
+			Mutex::Lock lock(counters_mutex);
+			bestmove_is_sent = true;
 		}
 
 		bool IsSearchActive() const
@@ -137,6 +165,7 @@ namespace medusa
 		std::atomic<bool> stop_{ false };
 		BestMoveInfo best_move_info;
 		PvInfo::Callback info_callback;
+		Parameters params;
 };
 
 	const int CHCK_PRI = 1000.0;
@@ -145,7 +174,7 @@ namespace medusa
 	class MoveSelector
 	{
 	public:
-		MoveSelector(Position &pos, bool include_quiet);
+		MoveSelector(Position &pos, bool include_quiet, const Parameters &params_);
 		bool any() const { return !moves.empty(); }
 		auto get_moves() const { return moves; }
 		size_t num_moves() const { return moves.size(); }
@@ -153,6 +182,7 @@ namespace medusa
 
 	private:
 		std::multimap<int, Move> moves;
+		Parameters params;
 	};
 	   
 	inline int MoveSelector::see(Position &pos, Move move)
@@ -176,7 +206,7 @@ namespace medusa
 		int smallest_attacker = 100000;
 		for (auto m : next_moves)
 		{
-			int attacker = values[pos.attacker(next_move)];
+			int attacker = params.get( ParameterID( pos.attacker(next_move) ) );
 			if (attacker <= smallest_attacker)
 			{
 				smallest_attacker = attacker;
@@ -187,7 +217,7 @@ namespace medusa
 		// === Apply ====
 		auto captured = pos.captured(next_move);
 		pos.apply(next_move);
-		int capture_value = values[captured] - see(pos, next_move);
+		int capture_value = params.get(ParameterID(captured)) - see(pos, next_move);
 		pos.unapply(next_move);
 		// === unapply ====
 

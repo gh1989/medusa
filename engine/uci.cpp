@@ -190,6 +190,11 @@ namespace medusa {
 		engine_.Stop();
 	}
 
+	void UciLoop::SelfPlay()
+	{
+		engine_.SelfPlay();
+	}
+
 	bool UciLoop::DispatchCommand(
 		const std::string& command,
 		const std::unordered_map<std::string, std::string>& params)
@@ -197,6 +202,10 @@ namespace medusa {
 		if (command == "uci")
 		{
 			CmdUci();
+		}
+		else if (command == "selfplay")
+		{
+			SelfPlay();
 		}
 		else if (command == "isready")
 		{
@@ -324,8 +333,7 @@ namespace medusa {
 	void EngineController::Go(const GoParams& params)
 	{
 		auto start_time = move_start_time_;
-
-
+		
 		// Given wtime, btime, winc, binc manage the time. Simple model for this
 		// is to estimate the number of moves left in the game, then expected total
 		// time is expected_moves * [w/b]inc + [w/b]time and time per move should be
@@ -335,9 +343,10 @@ namespace medusa {
 		auto us = current_position_instance_.colour_to_move();
 		int ctime = us.is_black() ? go_params_.btime.value_or(0) : go_params_.wtime.value_or(0);
 		int cinc  = us.is_black() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
-		int emoves = std::max((100 - current_position_instance_.get_plies())/2, 10);
-		int etime = ctime + emoves * cinc;
-		int stime = std::max(etime / emoves, 1000);
+		int emoves = 25;
+		int etime = ctime ;
+		int stime = std::max(etime / emoves, 500);
+		stime = go_params_.movetime.value_or(stime);
 		LOGFILE << "Time per move (ms): " << stime << std::endl;
 
 		PvInfo::Callback info_callback(info_callback_);
@@ -353,7 +362,7 @@ namespace medusa {
 		search_ = std::make_unique<Search>();
 		search_->StartThread(
 				current_position_instance_, 
-				go_params_.depth.value_or(6),
+				go_params_.depth.value_or(20),
 				best_move_callback_,
 				info_callback_,
 				stime);
@@ -377,5 +386,18 @@ namespace medusa {
 		std::vector<Move> moves;
 		for (const auto& move : moves_str) 
 			current_position_instance_.apply_uci(move);
+	}
+
+	void EngineController::SelfPlay()
+	{
+		current_position_instance_ = position_from_fen("");
+		current_position_instance_.pp();
+		search_ = std::make_unique<Search>();
+		search_->StartSelfPlay(
+				current_position_instance_,
+				go_params_.depth.value_or(20),
+				best_move_callback_,
+				info_callback_,
+				2000);		
 	}
 }

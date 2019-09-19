@@ -48,6 +48,12 @@
     <ClInclude Include="utils\logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="parameters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.cpp">

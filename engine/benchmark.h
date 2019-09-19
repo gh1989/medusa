@@ -3,11 +3,34 @@
 
 #include "evaluation.h"
 #include "utils.h"
+#include "parameters.h"
 #include "position.h"
 
 namespace medusa
 {
 	using namespace eval;
+
+	void test_evaluation()
+	{
+		auto pos = position_from_fen("5k1r/1Rp1r3/2n1pp2/2Pp4/p4P1p/b3BRPB/P1P4P/6K1 b - - 3 31");
+		pos = position_from_fen("rnbqkbnr/p3pppp/8/2p5/2N5/8/PPPPPP1R/R1BQKB1R w KQkq - 0 1");
+		Parameters params;
+		static_score(pos, params);
+	}
+
+	void test_infinite_score()
+	{
+		auto inf = Score::Infinite();
+		auto mate = Score::Checkmate(1);
+		auto cp = Score::Centipawns(100, 1);
+		/*
+		std::cout << (inf > mate) << (-inf < mate) << (mate > cp) << (-mate < cp) \
+				  << (inf > cp) << ((-inf) < cp) << ((-inf) < inf) << (inf > -inf)    \
+				  << std::endl;
+		*/
+		std::cout << (inf > -inf) << std::endl;
+
+	}
 
 	void test_strange_pawn_capture()
 	{

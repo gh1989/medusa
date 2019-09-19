@@ -1,33 +1,15 @@
 #ifndef eval_h
 #define eval_h
 
+#include "parameters.h"
 #include "position.h"
 
 namespace medusa
 {
-		
-	// Material
-	const int PAWN_SCORE = 100;
-	const int KNIGHT_SCORE = 300;
-	const int BISHOP_SCORE = 300;
-	const int ROOK_SCORE = 500;
-	const int QUEEN_SCORE = 900;
-	const int KING_SCORE = 10000000;
-
-	const int values[Piece::NUMBER_PIECES]
-	{
-		KNIGHT_SCORE,
-		BISHOP_SCORE,
-		ROOK_SCORE,
-		QUEEN_SCORE,
-		KING_SCORE,
-		PAWN_SCORE,
-	};
-
 	namespace eval
 	{
 		// Used in the search.
-		int static_score(Position &p);
+		int static_score(Position &p, const Parameters& params);
 
 		// Game phase
 		enum GamePhase 
@@ -58,27 +40,27 @@ namespace medusa
 
 		// Material
 		template<EvalColour C>
-		int material_score(Position &p);
+		int material_score(Position &p, const Parameters &params);
 
 		// Pawn structure
 		template<EvalColour C>
-		int pawn_structure(Position &p, GamePhase phase);
+		int pawn_structure(Position &p,GamePhase phase, const Parameters &params);
 
 		// King position
 		template<EvalColour C>
-		int king_position(Position &p, GamePhase phase);
+		int king_position(Position &p,GamePhase phase, const Parameters &params);
 
 		// Minor piece long-term potential.
 		template<EvalColour C>
-		int minor_pieces(Position &p, GamePhase phase);
+		int minor_pieces(Position &p,GamePhase phase, const Parameters &params);
 
 		// Co-ordination
 		template<EvalColour C>
-		int coordination(Position &p, GamePhase phase);
+		int coordination(Position &p,GamePhase phase, const Parameters &params);
 
 		// Space
 		template<EvalColour C>
-		int space(Position &p, GamePhase phase);
+		int space(Position &p,GamePhase phase, const Parameters &params);
 		
 		template <EvalColour C>
 		int developedpcs(const Position &p);

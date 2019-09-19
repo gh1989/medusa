@@ -93,7 +93,8 @@ namespace medusa
 	struct BestMoveInfo
 	{
 		Move best_move = 0;
-		Score score;
+		Score score; // careful when we do this because in the frame of the search
+			         // we are always the maximizer...
 		unsigned int depth = 0;
 
 		using Callback = std::function<void(const BestMoveInfo&)>;

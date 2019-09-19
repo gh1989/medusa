@@ -1,5 +1,6 @@
 #include <random>
 
+#include "parameters.h"
 #include "utils/bititer.h"
 #include "evaluation.h"
 
@@ -7,23 +8,22 @@ namespace medusa
 {
 	namespace eval
 	{
-		
 		template<EvalColour C>
-		int material_score(Position &p)
+		int material_score(Position &p, const Parameters &params)
 		{
 			int S = 0;
 
-			S += PAWN_SCORE * p.piecebb(C, PAWN).popcnt();
-			S += KNIGHT_SCORE * p.piecebb(C, KNIGHT).popcnt();
-			S += ROOK_SCORE * p.piecebb(C, ROOK).popcnt();
-			S += BISHOP_SCORE * p.piecebb(C, BISHOP).popcnt();
-			S += QUEEN_SCORE * p.piecebb(C, QUEEN).popcnt();
+			S += params.get(PawnValue) * p.piecebb(C, PAWN).popcnt();
+			S += params.get(KnightValue) * p.piecebb(C, KNIGHT).popcnt();
+			S += params.get(RookValue) * p.piecebb(C, ROOK).popcnt();
+			S += params.get(BishopValue) * p.piecebb(C, BISHOP).popcnt();
+			S += params.get(QueenValue) * p.piecebb(C, QUEEN).popcnt();
 
 			return S;
 		}
 
 		template<EvalColour C>
-		int pawn_structure(Position &p, GamePhase phase)
+		int pawn_structure(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
 			auto pawns = p.piecebb(C, PAWN);
@@ -32,10 +32,10 @@ namespace medusa
 			if (phase != Endgame)
 			{
 				// pawn structure: unmoved pawns
-				score -= 10 * unmovedpawns<C>(p);
+				score -= params.get(UnmovedPawn) * unmovedpawns<C>(p);
 
 				// control the centre
-				score += 10 * (BB_CTR_SQR & pawns).popcnt();
+				score += params.get(CentralPawn) * (BB_CTR_SQR & pawns).popcnt();
 			}
 
 			for (auto it = pawns.begin(); it != pawns.end(); it.operator++())
@@ -47,14 +47,14 @@ namespace medusa
 				auto filebb = files[file];
 
 				// pawn structure: doubled pawns
-				score -= 10 * (pawns & filebb & (~pwnbb)).popcnt();
+				score -= params.get(DoubledPawn) * (pawns & filebb & (~pwnbb)).popcnt();
 
 				// Advanced pawns
 				if (phase == Endgame)
 				{
 					// Rank goes from 0 to 7, make it symmetric
 					int m = (C == White) ? 1 : -1;
-					score += m * (rank - 3) * 10;
+					score += m * (rank - 3) * params.get(AdvancedPawn);
 				}
 			}
 
@@ -62,7 +62,7 @@ namespace medusa
 		}
 
 		template<EvalColour C>
-		int king_position(Position &p, GamePhase phase)
+		int king_position(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
 			auto king = p.piecebb(C, KING);
@@ -73,15 +73,20 @@ namespace medusa
 			if (phase != Endgame)
 			{
 				// King in the centre penalty during the opening.
-				score -= 10 * king_in_centre;
-				
+				score -= params.get(KingInCentre) * king_in_centre;
+				score += params.get(KingOnEdge) * king_on_rim;
+
 				// Squares around the king are attacked? 
 				auto kingsqr = bbsqr(king);
 				auto around = neighbours[kingsqr];
+				auto them = ~get<C>();
+				auto pawns = p.piecebb(C, PAWN);
 				for (auto it = around.begin(); it != around.end(); it.operator++())
 				{
 					Square sqr = Square(*it);
-					score -= 10 * p.is_square_attacked(sqr, ~get<C>());
+					auto bb = sqrbb(sqr);
+					score -= params.get(KingRingAttacked) * p.is_square_attacked(sqr, them);
+					score += params.get(KingRingShield) * (bb & pawns).popcnt();
 				}
 			}
 
@@ -89,41 +94,54 @@ namespace medusa
 			// or knight on the rim in some cases.
 			if (phase == Endgame)
 			{
-				score -= 10 * king_on_rim;
+				score -= params.get(KingOnEdge) * king_on_rim;
 			}
 
 			return score;
 		}
 			
 		template<EvalColour C>
-		int minor_pieces(Position &p, GamePhase phase)
+		int minor_pieces(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
 			auto knights = p.piecebb(C, KNIGHT);
 
 			// A knight on the rim is dim.
 			Bitboard knights_on_rim = knights & BB_RIM;
-			score -= 10 * knights_on_rim.popcnt();
+			score -= params.get(KnightOnEdge) * knights_on_rim.popcnt();
 			auto undeveloped = undevelopedpcs<C>(p);
 
 			// 1. In the opening, develop the minor pieces to good squares.
 			if (phase == Opening)
 			{	
 				// Pieces that are not moved yet.
-				score -= 10 * undeveloped;
+				score -= params.get(UnmovedPiece) * undeveloped;
 			}
 
 			// 2. In the middlegame, nothing changes, knight might want a more
 			// advanced outpost.
-			if (phase == Middlegame)
+			if (phase != Endgame)
 			{
-				score -= 10 * undeveloped;
+				score -= params.get(UnmovedPiece) * undeveloped;
+				auto us = get<C>();
+				auto them = ~us;
+				auto occupancy = p.occupants();
+
+				// Bishops on long diagonals bonus (TODO: if they can be
+				// kicked or blocked?)
+				auto bishops = p.piecebb(C, BISHOP);
+				for (auto it = bishops.begin(); it != bishops.end(); it.operator++())
+				{
+					auto sqr = Square(*it);
+					auto bishop_influence = direction_attacks(occupancy, sqr, bishop_directions);
+					score += params.get(BishopControl) * (bishop_influence & (~BB_CTR_SQR)).popcnt();
+					score += params.get(BishopControl) * (bishop_influence & (BB_CTR_SQR)).popcnt();
+				}
 
 				// Knight on advanced outpost unable to be moved since
 				// no pawns in the neighbouring files can move towards.
 				// Opposite knight not currently attacking the square.
 				auto knightsctr = p.piecebb(C, KNIGHT) & BB_CTR_SQR;
-				auto them = ~get<C>();
 				auto theirpawns = p.piecebb(them, PAWN);
 				auto theirknights = p.piecebb(them, KNIGHT);
 				for (auto it = knightsctr.begin(); it != knightsctr.end(); it.operator++())
@@ -145,7 +163,7 @@ namespace medusa
 					
 					// No knight attacking the square and no pawns can kick.
 					if (!(knight_attacks[sqr] & theirknights) && no_pawns)
-						score += 15;
+						score += params.get(KnightOutpost);
 				}
 			}
 
@@ -207,7 +225,7 @@ namespace medusa
 
 		
 		template<EvalColour C>
-		int coordination(Position &p, GamePhase phase)
+		int coordination(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
 			auto us = get<C>();
@@ -227,9 +245,9 @@ namespace medusa
 					auto fbb = files[fidx];
 					if (!(usnorooks & occus & fbb))
 					{
-						score += 10;
+						score += params.get(RookSemiOpen);
 						if (!(occthem & fbb))
-							score += 15;
+							score += params.get(RookOpenBonus);
 					}
 				}
 			}
@@ -238,42 +256,66 @@ namespace medusa
 		}
 
 		template<EvalColour C>
-		int space(Position &p, GamePhase phase)
+		int space(Position &p, GamePhase phase, const Parameters &params)
 		{
 			// TODO: ...
 			return 0;
 		}
 
 		template<EvalColour C>
-		int static_score(Position &p)
+		int static_score(Position &p, const Parameters &params)
 		{
 			GamePhase phase = game_phase<C>(p);
 			int S = 0;
 
 			// 1. Material
-			S += material_score<C>(p);
+			int s_material = material_score<C>(p, params);
+      		S += s_material;
 
 			// 2. Pawn structure
-			S += pawn_structure<C>(p, phase);
-
+			int s_pawn_structure = pawn_structure<C>(p, phase, params);
+			S += s_pawn_structure;
+			
 			// 3. King position
-			S += king_position<C>(p, phase);
+			int s_king_position = king_position<C>(p, phase, params);
+			S += s_king_position;
 
 			// 4. Minor piece long term potential
-			S += minor_pieces<C>(p, phase);
+			int s_minor_pieces = minor_pieces<C>(p, phase, params);
+			S += s_minor_pieces;
 
 			// 5. Co-ordination
-			S += coordination<C>(p, phase);
+			int s_coordination = coordination<C>(p, phase, params);
+			S += s_coordination;
 
 			// 6. Space
-			S += space<C>(p, phase);
-
+			int s_space = space<C>(p, phase, params);
+			S += s_space;
+/*
+#ifdef _DEBUG
+			std::cout << "Minor piece: " << s_minor_pieces << std::endl;
+			std::cout << "King position: " << s_king_position << std::endl;
+			std::cout << "Pawn structure: " << s_pawn_structure << std::endl;
+			std::cout << "Co-ordination: " << s_coordination << std::endl;
+			std::cout << "Material: " << s_material << std::endl;
+			std::cout << "Space: " << s_space << std::endl;
+#endif
+*/
 			return S;
 		}
 
-		int static_score(Position &p)
+		int static_score(Position &p, const Parameters &params)
 		{
-			return static_score<White>(p) - static_score<Black>(p);
+			int s_white = static_score<White>(p, params);
+			int s_black = static_score<Black>(p, params);
+/*
+#ifdef _DEBUG
+			std::cout << "White: " << s_white << std::endl;
+			std::cout << "Black: " << s_black << std::endl;
+			std::cout << "Score: " << s_white-s_black << std::endl;
+#endif
+*/
+			return  s_white - s_black;
 		}
 	}
 };

@@ -22,6 +22,7 @@ namespace medusa {
 		const std::unordered_map<std::string, std::unordered_set<std::string>>
 			kKnownCommands = {
 				{{"uci"}, {}},
+				{{"selfplay"}, {}},
 				{{"isready"}, {}},
 				{{"setoption"}, {"context", "name", "value"}},
 				{{"ucinewgame"}, {}},
@@ -80,6 +81,8 @@ namespace medusa {
 		void Go(const GoParams& params);
 		// Must not block.
 		void Stop();
+		// Self play.
+		void SelfPlay();
 
 	private:
 		void SetupPosition(const std::string& fen,
@@ -125,6 +128,7 @@ namespace medusa {
 			const std::vector<std::string>&);
 		void CmdGo(const GoParams&);
 		void CmdStop();
+		void SelfPlay();
 
 	private:
 		bool DispatchCommand(

@@ -2,6 +2,7 @@
 #include <ctime>
 #include <functional>
 
+#include "parameters.h"
 #include "search.h"
 #include "move.h"
 
@@ -81,11 +82,11 @@ Score Search::search(
 		return alpha;
 	bool qsearch = max_depth <= 0;
 
-	MoveSelector move_selector(pos, !qsearch);
+	MoveSelector move_selector(pos, !qsearch, params);
 
 	if (qsearch)
 	{
-		int centipawns = eval::static_score(pos);
+		int centipawns = eval::static_score(pos, params);
 		auto c = pos.colour_to_move();
 		auto stand_pat = Score::Centipawns(c*centipawns, plies_from_root);
 		if (stand_pat >= beta)
@@ -110,7 +111,8 @@ Score Search::search(
 			return Score::Centipawns(0, plies_from_root);
 
 		// Position evaluation to be maximized or minimized.
-		double centipawns = eval::static_score(pos);
+		Parameters params;
+		double centipawns = eval::static_score(pos, params);
 
 		// Since we are always the maximizer we are always technically
 		// white.
@@ -118,7 +120,7 @@ Score Search::search(
 		return Score::Centipawns(c*centipawns, plies_from_root);
 	}
 	
-	// The worst possible score in which we are getting mated in a single move.
+	// Lowest possible score from the view of the maximiser.
 	Score best_score = -Score::Infinite();
 	Move best_move;
 	Score score;
@@ -170,7 +172,7 @@ Score Search::search(
 	
 	// Update best move if we made it back to root in time.
 	if (plies_from_root == 0)
-	if (searching_flag && (best_score >= best_move_info.score))
+	if (searching_flag)
 	{
 		Mutex::Lock lock(counters_mutex);
 		best_move_info.best_move = best_move;
@@ -182,8 +184,9 @@ Score Search::search(
 	return alpha;
 }
 
-MoveSelector::MoveSelector(Position& position, bool include_quiet)
+MoveSelector::MoveSelector(Position& position, bool include_quiet, const Parameters &params_)
 {
+	params = params_;
 	auto unordered_moves = position.legal_moves<Any>();
 	auto colour = position.colour_to_move();
 
