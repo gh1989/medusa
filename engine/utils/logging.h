@@ -12,7 +12,7 @@ Taken from Leela Chess
 
 #include "utils/mutex.h"
 
-namespace medusa {
+namespace Medusa {
 
 class Logging {
  public:
@@ -55,5 +55,5 @@ std::chrono::time_point<std::chrono::system_clock> SteadyClockToSystemClock(
 std::string FormatTime(std::chrono::time_point<std::chrono::system_clock> time);
 } 
 
-#define LOGFILE ::medusa::LogMessage(__FILE__, __LINE__)
-#define CERR ::medusa::StderrLogMessage(__FILE__, __LINE__)
+#define LOGFILE ::Medusa::LogMessage(__FILE__, __LINE__)
+#define CERR ::Medusa::StderrLogMessage(__FILE__, __LINE__)

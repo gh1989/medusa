@@ -1,6 +1,6 @@
 #include "types.h"
 
-namespace medusa
+namespace Medusa
 {
 	const Colour Colour::WHITE = Colour(1);
 	const Colour Colour::BLACK = Colour(-1);
@@ -129,20 +129,20 @@ namespace medusa
 		return ((*this) < rhs) || (*this) == rhs;
 	}
 
-	bool Score::is_mate() const
+	bool Score::IsMate() const
 	{
 		return unavoidable_mate;
 	}
 
-	int Score::get_mate_in() const {
+	int Score::GetMateIn() const {
 		return mate_in / 2 + 1;
 	}
 
-	double Score::get_centipawns() const {
+	double Score::GetCentipawns() const {
 		return centipawns_for;
 	}
 
-	int Score::get_depth() const {
+	int Score::GetDepth() const {
 		return depth;
 	}
 

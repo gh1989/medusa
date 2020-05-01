@@ -8,27 +8,27 @@
 #include <cstdio>
 #include <cctype>
 
-namespace medusa
+namespace Medusa
 {
 	// Piece strings
 	const std::string PIECE_STRINGS = "NBRQKP";
 
 	const std::string piece_strings[6] = { "n", "b", "r", "q", "k", "p" };
 
-	std::string piece_string_lower(Piece piece)
+	std::string PieceStringLower(Piece piece)
 	{
 		return piece_strings[piece];
 	}
 
-	std::string piece_string(Piece piece, Colour c)
+	std::string PieceString(Piece piece, Colour c)
 	{
 		auto str = PIECE_STRINGS[piece];
-		if (c.is_black())
+		if (c.IsBlack())
 			str = ::tolower(str);
 		return std::string(1, str);
 	}
 
-	Bitboard bitboard_from_string(std::string str)
+	Bitboard BitboardFromString(std::string str)
 	{
 		if (str[0] < 'a' || str[1] < '1' || str[0] > 'h' || str[1] > '8')
 			throw std::runtime_error("Square string is formatted improperly.");
@@ -36,7 +36,7 @@ namespace medusa
 		return Bitboard(1ULL << boardnum);
 	}
 
-	Position position_from_fen(std::string fen)
+	Position PositionFromFen(std::string fen)
 	{
 		const std::string castle_enum = "QKqk";
 
@@ -87,7 +87,7 @@ namespace medusa
 					auto piece = static_cast<Piece>(found);
 					auto colour = (::toupper(c) == c) ? Colour::WHITE : Colour::BLACK;
 					auto square = static_cast<Square>(8 * (ite - 1) + sub_ite);
-					pos.add_piece(colour, piece, square);
+					pos.AddPiece(colour, piece, square);
 					sub_ite++;
 				}
 			}
@@ -114,24 +114,24 @@ namespace medusa
 					castlesum += 1 << found;
 			}
 
-			pos.set_castling(static_cast<Castling>(castlesum));
+			pos.SetCastling(static_cast<Castling>(castlesum));
 		}
 		else
 		{
-			pos.set_castling(static_cast<Castling>(0));
+			pos.SetCastling(static_cast<Castling>(0));
 		}
 
-		auto colour = Colour::from_string(colour_string);
+		auto colour = Colour::FromString(colour_string);
 		pos.set_colour(colour);
 
 		if (epstring != "-")
 		{
-			auto epboard = bitboard_from_string(epstring);
-			pos.set_enpassant(epboard);
+			auto epboard = BitboardFromString(epstring);
+			pos.SetEnPassant(epboard);
 		}
 		else
 		{
-			pos.set_enpassant(0);
+			pos.SetEnPassant(0);
 		}
 
 		if (fiftycounter != "-")
@@ -140,11 +140,11 @@ namespace medusa
 			if (counter >= 10000)
 				throw std::runtime_error("FEN is formatted improperly.");
 
-			pos.set_fifty_counter(counter);
+			pos.SetFiftyCounter(counter);
 		}
 		else
 		{
-			pos.set_fifty_counter(0);
+			pos.SetFiftyCounter(0);
 		}
 
 		if (moveclock != "-")
@@ -153,14 +153,14 @@ namespace medusa
 			if (counter > 10000)
 				throw std::runtime_error("FEN is formatted improperly.");
 
-			pos.set_plies(2 * counter + colour.plies());
+			pos.SetPlies(2 * counter + colour.Plies());
 		}
 
 		return pos;
 	}
 	
 	// Get square name as string
-	std::string square_name(Square sqr)
+	std::string SquareName(Square sqr)
 	{
 		const std::string file_strings[8] = { "a", "b", "c", "d", "e", "f", "g", "h" };
 		const std::string rank_strings[8] = { "1", "2", "3", "4", "5", "6", "7", "8" };
@@ -170,7 +170,7 @@ namespace medusa
 
 
 	// Print the board as ASCII art.
-	void Position::pp() const
+	void Position::PrettyPrint() const
 	{
 		// collect information
 		std::string pos[8][8];
@@ -180,12 +180,12 @@ namespace medusa
 
 		for (auto clr : { Colour::WHITE, Colour::BLACK })
 		{
-			auto clr_bitboard = bitboards[clr.index()];
+			auto clr_bitboard = bitboards[clr.Index()];
 			for (int i = 0; i < NUMBER_PIECES; ++i)
 			{
 				auto occup = clr_bitboard[i];
 				Piece piece = static_cast<Piece>(i);
-				std::string modif = piece_string(piece, clr);
+				std::string modif = PieceString(piece, clr);
 				for (int i=0; i<63; i++)
 				{
 					int j = (7 - int(i / 8)) % 8;
@@ -220,7 +220,7 @@ namespace medusa
 			for (int i = 0; i < 63; i++)
 			{
 				if ( squares[i] & enpassant )
-					std::cout << square_name(Square(i));
+					std::cout << SquareName(Square(i));
 			}
 			std::cout << std::endl;
 		}
@@ -236,22 +236,22 @@ namespace medusa
 		}
 
 		std::cout << std::endl;
-		auto clr = colour_to_move();
+		auto clr = ToMove();
 		std::cout << "plies: " << plies << std::endl;
-		std::cout << "colour to move: " << clr.to_string() << std::endl;
+		std::cout << "colour to move: " << clr.ToString() << std::endl;
 	}
 
 	// Apply UCI move to the position.
-	void Position::apply_uci(std::string move_str)
+	void Position::ApplyUCI(std::string move_str)
 	{
-		auto moves = legal_moves<Any>();
+		auto moves = LegalMoves<Any>();
 
 		for (auto m : moves)
 		{
-			auto this_move_str = as_uci(m);
+			auto this_move_str = AsUci(m);
 			if (this_move_str == move_str)
 			{
-				apply(m);
+				Apply(m);
 				return;
 			}
 		}
@@ -363,31 +363,31 @@ namespace medusa
 		return result;
 	}
 
-	void apply(Position &pos, std::shared_ptr<Variation> md)
+	void Apply(Position &pos, std::shared_ptr<Variation> md)
 	{
 		std::shared_ptr<Variation> tmp = md;
 
 		// Go forward.
 		while (tmp->after != nullptr)
 		{
-			pos.apply(tmp->move);
+			pos.Apply(tmp->move);
 			tmp = tmp->after;
 		}
 	}
 
-	void unapply(Position &pos, std::shared_ptr<Variation> md)
+	void Unapply(Position &pos, std::shared_ptr<Variation> md)
 	{
-		std::shared_ptr<Variation> tmp = end(md);
+		std::shared_ptr<Variation> tmp = End(md);
 
 		// Go back.
 		while (tmp->before != nullptr)
 		{
 			tmp = tmp->before;
-			pos.unapply(tmp->move);
+			pos.Unapply(tmp->move);
 		};
 	}
 
-	std::string get_line(std::shared_ptr<Variation> md)
+	std::string GetLine(std::shared_ptr<Variation> md)
 	{
 		std::shared_ptr<Variation> tmp = md;
 		std::stringstream ss;
@@ -397,20 +397,20 @@ namespace medusa
 
 		while (tmp->after != nullptr)
 		{
-			ss << as_uci(tmp->move) << " ";
+			ss << AsUci(tmp->move) << " ";
 			tmp = tmp->after;
 		}
 
 		return ss.str();
 	};
 
-	void print_line(std::shared_ptr<Variation> md)
+	void PrintLine(std::shared_ptr<Variation> md)
 	{
-		std::cout << get_line(md) << std::endl;
+		std::cout << GetLine(md) << std::endl;
 	};
 
 
-	void join(
+	void Join(
 		std::shared_ptr<Variation> md,
 		std::shared_ptr<Variation> md_after,
 		Move move)
@@ -420,7 +420,7 @@ namespace medusa
 		md->move = move;
 	}
 
-	std::shared_ptr<Variation> end(std::shared_ptr<Variation> md)
+	std::shared_ptr<Variation> End(std::shared_ptr<Variation> md)
 	{
 		std::shared_ptr<Variation> tmp = md;
 
@@ -433,7 +433,7 @@ namespace medusa
 		return tmp;
 	}
 
-	std::shared_ptr<Variation> begin(std::shared_ptr<Variation> md)
+	std::shared_ptr<Variation> Begin(std::shared_ptr<Variation> md)
 	{
 		std::shared_ptr<Variation> tmp = md;
 
@@ -446,7 +446,7 @@ namespace medusa
 		return tmp;
 	}
 
-	size_t size(std::shared_ptr<Variation> md)
+	size_t Size(std::shared_ptr<Variation> md)
 	{
 		std::shared_ptr<Variation> tmp = md;
 		size_t sz = 0;

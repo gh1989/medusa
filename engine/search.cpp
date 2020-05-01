@@ -6,48 +6,63 @@
 #include "search.h"
 #include "move.h"
 
-namespace medusa {
+#include "utils/logging.h"
+
+namespace Medusa {
 
 bool Search::searching_flag = true;
 
-size_t Search::perft(Position &position, size_t max_depth)
+size_t Search::Perft(Position &position, size_t max_depth)
 {
 	if (max_depth == 0)
 		return 1;
 
 	size_t nodes = 0;
-	auto pseudo_legals = position.pseudo_legal_moves<Any>();
+	auto pseudo_legals = position.PseudoLegalMoves<Any>();
 	for (auto m : pseudo_legals)
 	{
-		position.apply(m);
-		if (!position.in_check())
-			nodes += perft(position, max_depth - 1);
-		position.unapply(m);
+		position.Apply(m);
+		if (!position.IsInCheck())
+			nodes += Perft(position, max_depth - 1);
+		position.Unapply(m);
 	}
 
 	return nodes;
 }
 
-void Search::start(const Position &pos, int max_depth)
+void Search::Start(const Position &pos, int max_depth)
 {
 	threads.emplace_back([this, pos, max_depth]() {
 		auto cpos = pos;
-		search_root(cpos, max_depth);
+		SearchRoot(cpos, max_depth);
 	});
 }
 
-std::shared_ptr<Variation> Search::search_root(Position &pos, int max_depth)
+std::shared_ptr<Variation> Search::SearchRoot(Position &pos, int max_depth)
 {
 	std::shared_ptr<Variation> md(new Variation());
 	nodes_searched = 0;
+
 	Score alpha = Score::Checkmate(-1);
 	Score beta  = Score::Checkmate(1);
-	this->search(pos, md, alpha, beta, max_depth);
+	
+	// Now do a search on this aperture size of score +/- delta
+	md = std::shared_ptr<Variation>(new Variation());
+	auto currentScore = this->_Search(pos, md, alpha, beta, 1);
 	PositionHistory::Clear();
+
+	for (int d = 2; d <= max_depth; d++)
+	{
+		auto tmp_md = std::shared_ptr<Variation>(new Variation());
+		this->_Search(pos, tmp_md, alpha, beta, d);
+		PositionHistory::Clear();
+		md = tmp_md;
+	}
+
 	return md;
 }
 
-Score Search::search(
+Score Search::_Search(
 	Position &pos,
 	std::shared_ptr<Variation> md,
 	Score alpha,
@@ -55,14 +70,14 @@ Score Search::search(
 	int max_depth)
 {
 	Score score;
-	if (pos.colour_to_move().is_black())
-		score = -this->search(pos, md, -beta, -alpha, max_depth, 0);
+	if (pos.ToMove().IsBlack())
+		score = -this->_Search(pos, md, -beta, -alpha, max_depth, 0);
 	else
-		score = this->search(pos, md, alpha, beta, max_depth, 0);
+		score = this->_Search(pos, md, alpha, beta, max_depth, 0);
 	return score;
 }
 
-Score Search::search(
+Score Search::_Search(
 	Position &pos,
 	std::shared_ptr<Variation> moves_all,
 	Score alpha,
@@ -73,10 +88,13 @@ Score Search::search(
 	if (max_depth < -60)
 		throw;
 
-	auto end = std::chrono::system_clock::now();
-	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - search_start_time);
+	auto now = std::chrono::system_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - search_start_time);
+	
 	if (elapsed.count() >= search_time_limit)
+	{
 		searching_flag = false;
+	}
 
 	if (!searching_flag)
 		return alpha;
@@ -86,37 +104,37 @@ Score Search::search(
 
 	if (qsearch)
 	{
-		int centipawns = eval::static_score(pos, params);
-		auto c = pos.colour_to_move();
+		int centipawns = Evaluation::StaticScore(pos, params);
+		auto c = pos.ToMove();
 		auto stand_pat = Score::Centipawns(c*centipawns, plies_from_root);
 		if (stand_pat >= beta)
-			return beta;
+			return stand_pat;
 		if (alpha < stand_pat)
 			alpha = stand_pat;
 	}
 
 	// Draw
-	if (pos.get_fifty_counter() > 49 || pos.three_move_repetition())
+	if (pos.GetFiftyCounter() > 49 || pos.ThreeMoveRepetition())
 		return Score::Centipawns(0, plies_from_root);
 
-	if (!move_selector.any())
+	if (!move_selector.Any())
 	{
 		// Checkmate?
-		if (pos.is_checkmate())
+		if (pos.IsCheckmate())
 			return -Score::Checkmate(plies_from_root);
 
 		// Draw?
 		bool search_all = max_depth > 0;
-		if (!pos.in_check() && search_all)
+		if (!pos.IsInCheck() && search_all)
 			return Score::Centipawns(0, plies_from_root);
 
 		// Position evaluation to be maximized or minimized.
 		Parameters params;
-		double centipawns = eval::static_score(pos, params);
+		double centipawns = Evaluation::StaticScore(pos, params);
 
 		// Since we are always the maximizer we are always technically
 		// white.
-		auto c = pos.colour_to_move();
+		auto c = pos.ToMove();
 		return Score::Centipawns(c*centipawns, plies_from_root);
 	}
 	
@@ -125,7 +143,7 @@ Score Search::search(
 	Move best_move;
 	Score score;
 	std::vector<PvInfo> infos;
-	auto moves = move_selector.get_moves();
+	auto moves = move_selector.GetMoves();
 	nodes_searched += moves.size();
 	for (auto pair : moves)
 	{
@@ -133,15 +151,15 @@ Score Search::search(
 			break;
 		auto move = pair.second;
 		std::shared_ptr<Variation> moves_after(new Variation());
-		pos.apply(move);
-		score = -this->search(pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
-		pos.unapply(move);
+		pos.Apply(move);
+		score = -this->_Search(pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
+		pos.Unapply(move);
 
 		// Update the move variation if we have an improvement.
 		if (score > best_score)
 		{
 			best_score = score;
-			join(moves_all, moves_after, move);
+			Join(moves_all, moves_after, move);
 			if (plies_from_root == 0)
 			{
 				best_move = move;
@@ -165,7 +183,7 @@ Score Search::search(
 			alpha = score;
 		if (score > best_score)
 			best_score = score;
-		if (alpha >= beta)
+		if (best_score > beta)
 			break;
 
 	}
@@ -181,36 +199,38 @@ Score Search::search(
 		info_callback(infos);
 	}
 
-	return alpha;
+	//return alpha;
+	return best_score;
 }
 
 MoveSelector::MoveSelector(Position& position, bool include_quiet, const Parameters &params_)
 {
 	params = params_;
-	auto unordered_moves = position.legal_moves<Any>();
-	auto colour = position.colour_to_move();
+	Position pos = position;
+	auto unordered_moves = pos.LegalMoves<Medusa::Any>();
+	auto colour = position.ToMove();
 
 	int i = 0;
 	for (auto &move : unordered_moves)
 	{
-		auto pc = position.attacker(move);
-		auto from_square = from(move);
+		auto pc = position.GetAttacker(move);
+		auto from_square = GetFrom(move);
 		int promise = PAWN - pc;
-		bool is_capture = position.is_capture(move);
-		position.apply(move);
-		bool is_check = position.in_check();
+		bool is_capture = position.MoveIsCapture(move);
+		position.Apply(move);
+		bool is_check = position.IsInCheck();
 
 		if (!include_quiet && !(is_check || is_capture))
 		{
-			position.unapply(move);
+			position.Unapply(move);
 			continue;
 		}
 
 		if (is_check)
 		{
-			if (!position.any_legal_move())
+			if (!position.AnyLegalMove())
 			{
-				position.unapply(move);
+				position.Unapply(move);
 				moves.clear();
 				moves.insert({ 0, move });
 				break;
@@ -220,10 +240,10 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet, const Paramet
 		}
 
 		// Needs to be a good reason to move a piece twice.
-		if (position.last_moved( pc, from_square) )
+		if (position.LastMoved( pc, from_square) )
 			promise -= 10;
 
-		position.unapply(move);
+		position.Unapply(move);
 		moves.insert({ -promise, move });
 	};
 }

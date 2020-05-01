@@ -4,22 +4,22 @@
 #include <algorithm>
 #include <iostream>
 
-namespace medusa
+namespace Medusa
 {
 
 	std::vector<Position> PositionHistory::history;
 
-	void Position::apply(Move move)
+	void Position::Apply(Move move)
 	{
 		PositionHistory::Push(*this);
 
-		auto special_flag = special_move(move);
-		auto us = colour_to_move();
+		auto special_flag = SpecialMoveType(move);
+		auto us = ToMove();
 		auto them = ~us;
-		int idx = us.index();
-		int them_idx = them.index();
-		auto start = from(move);
-		auto finish = to(move);
+		int idx = us.Index();
+		int them_idx = them.Index();
+		auto start = GetFrom(move);
+		auto finish = GetTo(move);
 		bool reset50 = false;
 		bool clear_enpassant = true;
 
@@ -28,48 +28,48 @@ namespace medusa
 		for (p = 0; p < NUMBER_PIECES; p++)
 		{
 			auto our_piece = bitboards[idx][p];
-			if (is_on(our_piece, start))
+			if (IsOn(our_piece, start))
 			{
 				if (p == PAWN)
 					reset50 = true;
 
 				if (p == PAWN && abs(finish - start) > 15)
 				{
-					Bitboard new_enpassant(1ULL << (us.is_white() ? (finish - 8) : (start - 8)));
+					Bitboard new_enpassant(1ULL << (us.IsWhite() ? (finish - 8) : (start - 8)));
 					enpassant = new_enpassant;
 					clear_enpassant = false;
 				}
 
 				if (p == KING) {
-					castle_disable(us);
+					DisableCastling(us);
 				}
 
 				if (p == ROOK) {
 					switch (start) {
 					case(a1):
 					{
-						castle_disable(W_QUEENSIDE);
+						DisableCastling(W_QUEENSIDE);
 						break;
 					}
 					case(h1):
 					{
-						castle_disable(W_KINGSIDE);
+						DisableCastling(W_KINGSIDE);
 						break;
 					}
 					case(a8):
 					{
-						castle_disable(B_QUEENSIDE);
+						DisableCastling(B_QUEENSIDE);
 						break;
 					}
 					case(h8):
 					{
-						castle_disable(B_KINGSIDE);
+						DisableCastling(B_KINGSIDE);
 						break;
 					}
 					}
 				}
 
-				bitboards[idx][p] = off_bit(our_piece, start);
+				bitboards[idx][p] = OffBit(our_piece, start);
 				break;
 			}
 		}
@@ -77,9 +77,9 @@ namespace medusa
 		// Kill piece on destination (capture)
 		for (int p = 0; p < NUMBER_PIECES; p++) {
 			auto their_pieces = bitboards[them_idx][p];
-			if (is_on(their_pieces, finish))
+			if (IsOn(their_pieces, finish))
 			{
-				bitboards[them_idx][p] = off_bit(their_pieces, finish);
+				bitboards[them_idx][p] = OffBit(their_pieces, finish);
 				reset50 = true;
 				break;
 			}
@@ -93,7 +93,7 @@ namespace medusa
 			// TODO: implement white POV only, for now colour logic.
 			reset50 = true;
 			auto their_pawns = bitboards[them_idx][PAWN];
-			auto their_enpassant_pawn = us.is_white() ? (enpassant >> 8) : (enpassant << 8);
+			auto their_enpassant_pawn = us.IsWhite() ? (enpassant >> 8) : (enpassant << 8);
 			bitboards[them_idx][PAWN] = their_pawns & ~their_enpassant_pawn; //kill pawn
 			auto our_pawns = bitboards[idx][PAWN];
 			bitboards[idx][PAWN] = our_pawns | enpassant;
@@ -102,27 +102,27 @@ namespace medusa
 		case(PROMOTE):
 		{
 			reset50 = true;
-			auto promote_piece = promotion_piece(move);
+			auto promote_piece = PromotionPiece(move);
 			auto our_promote_pieces = bitboards[idx][promote_piece];
-			bitboards[idx][promote_piece] = on_bit(our_promote_pieces, finish);
+			bitboards[idx][promote_piece] = OnBit(our_promote_pieces, finish);
 			break;
 		}
 		case(CASTLE):
 		{
 			auto our_king = bitboards[idx][KING];
-			bitboards[idx][KING] = on_bit(our_king, finish);
+			bitboards[idx][KING] = OnBit(our_king, finish);
 			auto our_rooks = bitboards[idx][ROOK];
 			bool queenside = (finish % 8) < 4;
 			auto rook_from = Square(queenside ? finish - 2 : finish + 1);
 			auto rook_to = Square(queenside ? finish + 1 : finish - 1);
-			bitboards[idx][ROOK] = bit_move(our_rooks, rook_from, rook_to);
-			castle_disable(us);
+			bitboards[idx][ROOK] = BitMove(our_rooks, rook_from, rook_to);
+			DisableCastling(us);
 			break;
 		}
 		case(NONE):
 		{
 			auto our_piece = bitboards[idx][p];
-			bitboards[idx][p] = on_bit(our_piece, finish);
+			bitboards[idx][p] = OnBit(our_piece, finish);
 		}
 		}
 
@@ -135,13 +135,13 @@ namespace medusa
 			enpassant = 0;
 
 #ifdef _DEBUG
-		tick_forward(as_uci(move));
+		tick_forward(AsUci(move));
 #else
-		tick_forward();
+		TickForward();
 #endif
 	}
 
-	void Position::unapply(Move move)
+	void Position::Unapply(Move move)
 	{
 		auto previous = PositionHistory::Pop();
 
@@ -150,32 +150,32 @@ namespace medusa
 		enpassant = previous.enpassant;
 		fifty_counter = previous.fifty_counter;
 
-		tick_back();
+		TickBack();
 	}
 
-	bool Position::was_capture(Move move) const
+	bool Position::MoveWasCapture(Move move) const
 	{
-		auto to_sqr = to(move);
+		auto to_sqr = GetTo(move);
 		auto to_sqr_bb = squares[to_sqr];
-		if ((to_sqr_bb & occupants(colour_to_move())))
+		if ((to_sqr_bb & Occupants(ToMove())))
 			return true;
-		if (special_move(move) == CAPTURE_ENPASSANT)
+		if (SpecialMoveType(move) == CAPTURE_ENPASSANT)
 			return true;
 		return false;
 	}
 
-	bool Position::is_capture(Move move) const
+	bool Position::MoveIsCapture(Move move) const
 	{
-		auto to_sqr = to(move);
+		auto to_sqr = GetTo(move);
 		auto to_sqr_bb = squares[to_sqr];
-		if ((to_sqr_bb & occupants()))
+		if ((to_sqr_bb & Occupants()))
 			return true;
-		if (special_move(move) == CAPTURE_ENPASSANT)
+		if (SpecialMoveType(move) == CAPTURE_ENPASSANT)
 			return true;
 		return false;
 	}
 
-	Piece Position::piece_at_square(Square square) const
+	Piece Position::PieceAtSquare(Square square) const
 	{
 		auto bb = squares[square];
 		for (auto p = 0; p < NUMBER_PIECES; p++)
@@ -188,97 +188,97 @@ namespace medusa
 		return NO_PIECE;
 	}
 
-	Piece Position::attacker(Move move) const
+	Piece Position::GetAttacker(Move move) const
 	{
-		auto from_sqr = from(move);
-		return piece_at_square(from_sqr);
+		auto from_sqr = GetFrom(move);
+		return PieceAtSquare(from_sqr);
 	}
 
-	Piece Position::captured(Move move) const
+	Piece Position::Captured(Move move) const
 	{
-		auto to_sqr = to(move);
-		return piece_at_square(to_sqr);
+		auto to_sqr = GetTo(move);
+		return PieceAtSquare(to_sqr);
 	}
 
-	Position Position::reflect() const
+	Position Position::Reflect() const
 	{
 		Position position(*this);
 
 		// Flip position of the pieces but keep the colour the same.
 		for (int p = 0; p < NUMBER_PIECES; p++)
 		{
-			position.bitboards[0][p] = medusa::reflect(bitboards[0][p]);
-			position.bitboards[1][p] = medusa::reflect(bitboards[1][p]);
+			position.bitboards[0][p] = Medusa::Reflect(bitboards[0][p]);
+			position.bitboards[1][p] = Medusa::Reflect(bitboards[1][p]);
 		}
 
 		// We need to make sure this is necessary. Not sure it is.
-		position.enpassant = medusa::reflect(enpassant);
+		position.enpassant = Medusa::Reflect(enpassant);
 		position.castling_reflect = !castling_reflect;
 		return position;
 	}
 
 	// is square attacked by white pieces.
-	bool Position::is_checkmate()
+	bool Position::IsCheckmate()
 	{
-		if (in_check())
-			return !any_legal_move();
+		if (IsInCheck())
+			return !AnyLegalMove();
 		return false;
 	}
 
 	// is square attacked by attacker pieces. Colour is attacking side.
-	bool Position::is_square_attacked(const Bitboard& square, Colour colour) const
+	bool Position::IsSquareAttacked(const Bitboard& square, Colour colour) const
 	{
-		auto occupancy = occupants();
-		auto bb = bitboards[colour.index()];
+		auto occupancy = Occupants();
+		auto bb = bitboards[colour.Index()];
 		
-		auto sqr = bbsqr(square);
+		auto sqr = BbSqr(square);
 		if (knight_attacks[sqr] & bb[KNIGHT])
 			return true;
 		if (neighbours[sqr] & bb[KING])
 			return true;
-		if (direction_attacks(occupancy, sqr, bishop_directions) & (bb[BISHOP] | bb[QUEEN]))
+		if (DirectionAttacks(occupancy, sqr, bishop_directions) & (bb[BISHOP] | bb[QUEEN]))
 			return true;
-		if (direction_attacks(occupancy, sqr, rook_directions) & (bb[ROOK] | bb[QUEEN]))
+		if (DirectionAttacks(occupancy, sqr, rook_directions) & (bb[ROOK] | bb[QUEEN]))
 			return true;
 
-		bool reverse_pawn_attacks = colour.is_black();
+		bool reverse_pawn_attacks = colour.IsBlack();
 		Bitboard new_pawn_square(square);
 		if (!reverse_pawn_attacks)
-			new_pawn_square = rotate180(new_pawn_square);
+			new_pawn_square = Rotate180(new_pawn_square);
 
-		auto pawn_s = bbsqr(new_pawn_square);
+		auto pawn_s = BbSqr(new_pawn_square);
 		auto pawn_bits = bb[PAWN];
 		auto attacks = pawn_attacks[pawn_s];
 		if (!reverse_pawn_attacks)
-			attacks = rotate180(attacks);
+			attacks = Rotate180(attacks);
 		if (attacks & pawn_bits)
 			return true;
 
 		return false;
 	}
 
-	bool Position::in_check() const
+	bool Position::IsInCheck() const
 	{
-		Colour us = colour_to_move();
+		Colour us = ToMove();
 		Colour them = ~us;
 
-		auto king = bitboards[us.index()][KING];
-		bool is_check = is_square_attacked(king, them);
+		auto king = bitboards[us.Index()][KING];
+		bool is_check = IsSquareAttacked(king, them);
 
 		return is_check;
 	}	
 
-	bool files_eq(Square x, Square y)
+	bool FilesEqual(Square x, Square y)
 	{
 		return ((x % 8) == (y % 8));
 	}
 
-	bool ranks_eq(Square x, Square y)
+	bool RanksEqual(Square x, Square y)
 	{
 		return ((x / 8) == (y / 8));
 	}
 
-	bool diag_to(Square a, Square b)
+	bool DiagTo(Square a, Square b)
 	{
 		int dy = (a / 8) - (b / 8);
 		int dx = (a % 8) - (b % 8);
@@ -287,7 +287,7 @@ namespace medusa
 		return false;
 	}
 
-	bool anti_diag_to(Square a, Square b)
+	bool AntiDiagTo(Square a, Square b)
 	{
 		int dy = (a / 8) - (b / 8);
 		int dx = (a % 8) - (b % 8);
@@ -296,55 +296,55 @@ namespace medusa
 		return false;
 	} 
 
-	bool Position::any_legal_move()
+	bool Position::AnyLegalMove()
 	{
-		auto psuedo_legal = pseudo_legal_moves<Any>();
-		bool check_d = in_check();
-		auto pred = [this, check_d](Move move) {return !this->is_illegal_move(move, check_d);  };
+		auto psuedo_legal = PseudoLegalMoves<Any>();
+		bool check_d = IsInCheck();
+		auto pred = [this, check_d](Move move) {return !this->IsIllegalMove(move, check_d);  };
 		return std::any_of(psuedo_legal.begin(), psuedo_legal.end(), pred);
 	}
 
-	bool Position::is_illegal_move(Move move, bool check_discovered_)
+	bool Position::IsIllegalMove(Move move, bool check_discovered_)
 	{
 		// Now filter out all illegals due to check at the end.
 		Colour us = to_move;
 		Colour them = ~to_move;
 
-		auto king = this->piecebb(us, KING);
+		auto king = this->PieceBoard(us, KING);
 		bool check_discovered = check_discovered_;
 
-		auto their_rooks = this->piecebb(them, ROOK);
-		auto their_queens = this->piecebb(them, QUEEN);
-		auto their_bishops = this->piecebb(them, BISHOP);
+		auto their_rooks = this->PieceBoard(them, ROOK);
+		auto their_queens = this->PieceBoard(them, QUEEN);
+		auto their_bishops = this->PieceBoard(them, BISHOP);
 
-		if (this->attacker(move) == KING)
+		if (this->GetAttacker(move) == KING)
 			check_discovered = true;
 		else
 		{
-			auto kingsq = bbsqr(king);
-			auto start = from(move);
-			auto finish = to(move);
+			auto kingsq = BbSqr(king);
+			auto start = GetFrom(move);
+			auto finish = GetTo(move);
 			int fidx = kingsq % 8;
 			int ridx = kingsq / 8;
-			if (files_eq(kingsq, start) && !files_eq(start, finish))
+			if (FilesEqual(kingsq, start) && !FilesEqual(start, finish))
 			{
 				auto kingfile = files[fidx];
 				if (((their_rooks | their_queens) & kingfile))
 					check_discovered = true;
 			}
-			if (ranks_eq(kingsq, start) && !ranks_eq(start, finish))
+			if (RanksEqual(kingsq, start) && !RanksEqual(start, finish))
 			{
 				auto kingrank = ranks[ridx];
 				if (((their_rooks | their_queens) & kingrank))
 					check_discovered = true;
 			}
-			if (diag_to(kingsq, start) && !diag_to(start, finish))
+			if (DiagTo(kingsq, start) && !DiagTo(start, finish))
 			{
 				auto kingdiag = diagonals[kingsq];
 				if (((their_bishops | their_queens) & kingdiag))
 					check_discovered = true;
 			}
-			if (anti_diag_to(kingsq, start) && !anti_diag_to(start, finish))
+			if (AntiDiagTo(kingsq, start) && !AntiDiagTo(start, finish))
 			{
 				auto kingdiag = antidiagonals[kingsq];
 				if (((their_bishops | their_queens) & kingdiag))
@@ -354,10 +354,10 @@ namespace medusa
 
 		if (check_discovered)
 		{
-			apply(move);
-			auto king = this->bitboards[us.index()][KING];
-			bool discovered_check = this->is_square_attacked(king, them);
-			unapply(move);
+			Apply(move);
+			auto king = this->bitboards[us.Index()][KING];
+			bool discovered_check = this->IsSquareAttacked(king, them);
+			Unapply(move);
 			return discovered_check;
 		}
 

@@ -1,7 +1,7 @@
 #ifndef move_h
 #define move_h
 
-namespace medusa
+namespace Medusa
 {
 	// From
 	constexpr unsigned short to_bits = 6;

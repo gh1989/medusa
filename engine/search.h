@@ -21,7 +21,7 @@
 #include "evaluation.h"
 #include "parameters.h"
 
-namespace medusa 
+namespace Medusa 
 {
 	class Search
 	{
@@ -43,47 +43,17 @@ namespace medusa
 			info_callback = info_callback_;
 			search_start_time = std::chrono::system_clock::now();
 			search_time_limit = std::max(time_limit, 200);
-
 			
 			threads.emplace_back(
 				[this, pos, max_depth, bestmove_callback]
 			{
 				auto cpos = pos;
-				for (int d = std::min(1, max_depth); (d <= std::min(10, max_depth)) && searching_flag; d++)
-					search_root(cpos, d);
-
+				SearchRoot(cpos, max_depth);
 				bestmove_callback(best_move_info);
 				Mutex::Lock lock(counters_mutex);
 				bestmove_is_sent = true;
 			});
-		}
-
-		void StartSelfPlay(
-			Position &pos,
-			int depth,
-			BestMoveInfo::Callback bestmove_callback,
-			PvInfo::Callback info_callback_,
-			int time_limit
-		)
-		{
-			searching_flag = true;
-			info_callback = info_callback_;
-
-			auto cpos = pos;
-
-			while (cpos.any_legal_move())
-			{
-				searching_flag = true;
-				search_start_time = std::chrono::system_clock::now();
-				search_time_limit = std::max(time_limit, 200);
-				auto m = search_root(cpos, depth);
-				cpos.apply(m->move);
-				cpos.pp();
-			};
-			
-			Mutex::Lock lock(counters_mutex);
-			bestmove_is_sent = true;
-		}
+		}	
 
 		bool IsSearchActive() const
 		{
@@ -121,25 +91,25 @@ namespace medusa
 			}
 		}
 
-		std::shared_ptr<Variation> search_root(Position &pos, int max_depth);
-		void start(const Position &pos, int max_depth);
-		void stop() { searching_flag = false; }
+		std::shared_ptr<Variation> SearchRoot(Position &pos, int max_depth);
+		void Start(const Position &pos, int max_depth);
+		
 		static void set_searching_flag(bool value)
 		{
 			Search::searching_flag = value;
 		}
 
-		size_t get_nodes_searched() const { return nodes_searched; }
+		size_t GetNodesSearched() const { return nodes_searched; }
 
 	private:
-		Score search(
+		Score _Search(
 			Position &pos,
 			std::shared_ptr<Variation> md,
 			Score alpha,
 			Score beta,
 			int max_depth);
 
-		Score search(
+		Score _Search(
 			Position &pos,
 			std::shared_ptr<Variation> move_deque,
 			Score alpha,
@@ -147,7 +117,7 @@ namespace medusa
 			int max_depth,
 			size_t plies_from_root);
 
-		static size_t perft(Position &position, size_t depth);
+		static size_t Perft(Position &position, size_t depth);
 		static bool searching_flag;
 		std::shared_ptr<Variation> principal_variation;
 		size_t hard_max;
@@ -175,23 +145,23 @@ namespace medusa
 	{
 	public:
 		MoveSelector(Position &pos, bool include_quiet, const Parameters &params_);
-		bool any() const { return !moves.empty(); }
-		auto get_moves() const { return moves; }
-		size_t num_moves() const { return moves.size(); }
-		int see(Position &pos, Move move);
+		bool Any() const { return !moves.empty(); }
+		auto GetMoves() const { return moves; }
+		size_t NumMoves() const { return moves.size(); }
+		int SEE(Position &pos, Move move);
 
 	private:
 		std::multimap<int, Move> moves;
 		Parameters params;
 	};
 	   
-	inline int MoveSelector::see(Position &pos, Move move)
+	inline int MoveSelector::SEE(Position &pos, Move move)
 	{
 		int value = 0;
 
 		// Get smallest attacker capture
-		auto next_moves = pos.legal_moves<Capture>();
-		auto remove_condition = [pos](Move m) { return !pos.is_capture(m); };
+		auto next_moves = pos.LegalMoves<Capture>();
+		auto remove_condition = [pos](Move m) { return !pos.MoveIsCapture(m); };
 		auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
 		next_moves.erase(to_remove, next_moves.end());
 
@@ -206,7 +176,7 @@ namespace medusa
 		int smallest_attacker = 100000;
 		for (auto m : next_moves)
 		{
-			int attacker = params.get( ParameterID( pos.attacker(next_move) ) );
+			int attacker = params.Get( ParameterID( pos.GetAttacker(next_move) ) );
 			if (attacker <= smallest_attacker)
 			{
 				smallest_attacker = attacker;
@@ -215,10 +185,10 @@ namespace medusa
 		}
 
 		// === Apply ====
-		auto captured = pos.captured(next_move);
-		pos.apply(next_move);
-		int capture_value = params.get(ParameterID(captured)) - see(pos, next_move);
-		pos.unapply(next_move);
+		auto captured = pos.Captured(next_move);
+		pos.Apply(next_move);
+		int capture_value = params.Get(ParameterID(captured)) - SEE(pos, next_move);
+		pos.Unapply(next_move);
 		// === unapply ====
 
 		value = capture_value > 0 ? capture_value : 0;

@@ -8,7 +8,7 @@
 
 #include "types.h"
 
-namespace medusa
+namespace Medusa
 {
 	template<class T>
 	class BitIterator {
@@ -18,7 +18,7 @@ namespace medusa
 			return value_ != other.value_;
 		}
 		void operator++() { value_ &= (value_ - 1); }
-		unsigned int operator*() const { return value_.lsb_n(); }
+		unsigned int operator*() const { return value_.nLSB(); }
 
 	private:
 		T value_;
@@ -80,13 +80,13 @@ namespace medusa
 			return bit_number != 0;
 		}
 		// population count				
-		int popcnt() const
+		int PopCnt() const
 		{
 			return __popcnt64(bit_number);
 		}
 
 		// returns the position of the most significant bit
-		unsigned int msb_n() const
+		unsigned int nMSB() const
 		{
 			uint64_t msb_val = msb64(bit_number);
 			unsigned int msb_num = 0;
@@ -98,7 +98,7 @@ namespace medusa
 			return msb_num;
 		}
 
-		unsigned int lsb_n() const
+		unsigned int nLSB() const
 		{
 			unsigned long result;
 			_BitScanForward64(&result, bit_number);
@@ -131,9 +131,8 @@ namespace medusa
 		uint64_t bit_number;
 	};
 
-
-	Bitboard rotate180(Bitboard bb);
-	uint64_t _byteswap(uint64_t to_swap);
+	Bitboard Rotate180(Bitboard bb);
+	uint64_t _ByteSwap(uint64_t to_swap);
 };
 
 #endif

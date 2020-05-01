@@ -3,7 +3,7 @@
 #include <map>
 
 
-namespace medusa
+namespace Medusa
 {
 	enum ParameterID
 	{
@@ -37,46 +37,45 @@ namespace medusa
 		Parameters()
 		{
 			// Piece material constants in centipawns
-			parameters[RookValue]		 = 500;
-			parameters[PawnValue]		 = 100;
-			parameters[BishopValue]		 = 300;
+			parameters[RookValue]		 = 550;
+			parameters[PawnValue]		 = 110;
+			parameters[BishopValue]		 = 330;
 			parameters[KnightValue]		 = 300;
-			parameters[QueenValue]		 = 900;
+			parameters[QueenValue]		 = 910;
 
 			// Other positional factors in centipawns
-			parameters[DoubledPawn]      = 25;
-			parameters[KnightOutpost]    = 10;
-			parameters[DoubledRooks]     = 10;
-			parameters[MinorPositioning] = 10;
+			parameters[DoubledPawn]      = 11;
+			parameters[DoubledRooks]     = 13;
+			parameters[MinorPositioning] = 3;
 
 			// King safety factors in centipawns
-			parameters[KingOnEdge]		 = 4;
-			parameters[KingInCentre]	 = 5;
+			parameters[KingOnEdge]		 = 10;
+			parameters[KingInCentre]	 = 10;
 			parameters[KingRingAttacked] = 6;
 			parameters[KingRingShield]	 = 2;
 			
 			// Pawn structure factors in centipawns
 			parameters[UnmovedPawn]		 = 8;
-			parameters[CentralPawn]		 = 9;
-			parameters[DoublePawn]		 = 22;
-			parameters[AdvancedPawn]	 = 11;
+			parameters[CentralPawn]		 = 10;
+			parameters[DoublePawn]		 = 3;
+			parameters[AdvancedPawn]	 = 7;
 
 			// Piece coordination and minor piece potential
 			// in centipawns
-			parameters[RookSemiOpen]	 = 7;
-			parameters[RookOpenBonus]	 = 10;
+			parameters[RookSemiOpen]	 = 10;
+			parameters[RookOpenBonus]	 = 13;
 			parameters[UnmovedPiece]	 = 5;
-			parameters[BishopControl]	 = 3;
-			parameters[KnightOutpost]	 = 20;
-			parameters[KnightOnEdge]	 = 10;
+			parameters[BishopControl]	 = 8;
+			parameters[KnightOutpost]	 = 4;
+			parameters[KnightOnEdge]	 = 6;
 		}
 
-		int get(ParameterID id) const
+		int Get(ParameterID id) const
 		{
 			return parameters.at(id);
 		}
 
-		void set(ParameterID id, int value)
+		void Set(ParameterID id, int value)
 		{
 			parameters[id] = value;
 		}

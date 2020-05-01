@@ -15,12 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bitboard.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="position.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -30,41 +24,35 @@
     <ClInclude Include="uci.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="bitboard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="board.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="benchmark.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="search.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="move.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="position.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="evaluation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="utils\logging.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="tree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="parameters.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="search.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\logging.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="benchmark.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bitboard.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="position.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="search.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="types.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -77,13 +65,22 @@
     <ClCompile Include="uci.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="board.cpp">
+    <ClCompile Include="utils\logging.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="search.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="evaluation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="utils\logging.cc">
+    <ClCompile Include="position.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="board.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bitboard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

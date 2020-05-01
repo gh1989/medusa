@@ -4,12 +4,12 @@
 #include "parameters.h"
 #include "position.h"
 
-namespace medusa
+namespace Medusa
 {
-	namespace eval
+	namespace Evaluation
 	{
 		// Used in the search.
-		int static_score(Position &p, const Parameters& params);
+		int StaticScore(Position &p, const Parameters& params);
 
 		// Game phase
 		enum GamePhase 
@@ -27,7 +27,7 @@ namespace medusa
 		};
 		
 		template<EvalColour C>
-		Colour get()
+		Colour Get()
 		{
 			if (C == White)
 				return Colour::WHITE;
@@ -36,40 +36,40 @@ namespace medusa
 
 		// Game phase
 		template<EvalColour C>
-		GamePhase game_phase(const Position &p);
+		GamePhase CalcGamePhase(const Position &p);
 
 		// Material
 		template<EvalColour C>
-		int material_score(Position &p, const Parameters &params);
+		int CalcMaterialScore(Position &p, const Parameters &params);
 
 		// Pawn structure
 		template<EvalColour C>
-		int pawn_structure(Position &p,GamePhase phase, const Parameters &params);
+		int CalcPawnStructureScore(Position &p,GamePhase phase, const Parameters &params);
 
 		// King position
 		template<EvalColour C>
-		int king_position(Position &p,GamePhase phase, const Parameters &params);
+		int CalcKingPositionScore(Position &p,GamePhase phase, const Parameters &params);
 
 		// Minor piece long-term potential.
 		template<EvalColour C>
-		int minor_pieces(Position &p,GamePhase phase, const Parameters &params);
+		int CalcMinorPiecePotentialScore(Position &p,GamePhase phase, const Parameters &params);
 
 		// Co-ordination
 		template<EvalColour C>
-		int coordination(Position &p,GamePhase phase, const Parameters &params);
+		int CalcCoordinationScore(Position &p,GamePhase phase, const Parameters &params);
 
 		// Space
 		template<EvalColour C>
-		int space(Position &p,GamePhase phase, const Parameters &params);
+		int CalcSpaceScore(Position &p,GamePhase phase, const Parameters &params);
 		
 		template <EvalColour C>
-		int developedpcs(const Position &p);
+		int CalcDevelopedPieces(const Position &p);
 
 		template<EvalColour C>
-		int undevelopedpcs(const Position &p);
+		int CalcUndevelopedPieces(const Position &p);
 
 		template<EvalColour C>
-		int unmovedpawns(const Position &p);
+		int CalcUnmovedPawns(const Position &p);
 	};
 };
 

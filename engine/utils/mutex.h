@@ -10,7 +10,7 @@ Taken from Leela Chess
 #include <shared_mutex>
 #include "utils/cppattributes.h"
 
-namespace medusa {
+namespace Medusa {
 
 // Implementation of reader-preferenced shared mutex. Based on fair shared
 // mutex.

@@ -8,7 +8,7 @@
 #include <vector>
 
 
-namespace medusa
+namespace Medusa
 {
 	// Move (16 bit int)
 	typedef unsigned short Move;
@@ -52,10 +52,10 @@ namespace medusa
 		bool operator>(const Score& rhs) const;
 		bool operator>=(const Score& rhs) const;
 		bool operator<=(const Score& rhs) const;
-		bool is_mate() const;
-		int get_mate_in() const;
-		double get_centipawns() const;
-		int get_depth() const;
+		bool IsMate() const;
+		int GetMateIn() const;
+		double GetCentipawns() const;
+		int GetDepth() const;
 		Score operator-() const;
 		Score operator-(int centipawns) const;
 		Score operator+(int centipawns) const;
@@ -113,14 +113,14 @@ namespace medusa
 		}
 		int operator*(int other) const { return value * other; }
 		Colour operator~() const { return Colour(-value);}
-		std::string to_string() const {
+		std::string ToString() const {
 			return value < 0 ? "B" : "W";
 		}
-		bool is_black() const {	return value < 0;}
-		bool is_white() const {	return !is_black();	}
-		int index() const {	return (value < 0 ? 1 : 0);	}
-		int plies() const {	return (value < 0 ? 1 : 0);	}
-		static Colour from_string(std::string colour_string) {
+		bool IsBlack() const {	return value < 0;}
+		bool IsWhite() const {	return !IsBlack();	}
+		int Index() const {	return (value < 0 ? 1 : 0);	}
+		int Plies() const {	return (value < 0 ? 1 : 0);	}
+		static Colour FromString(std::string colour_string) {
 			if (colour_string == "w")
 				return Colour::WHITE;
 			if (colour_string == "b")

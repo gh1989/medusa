@@ -4,57 +4,57 @@
 #include "utils/bititer.h"
 #include "evaluation.h"
 
-namespace medusa
+namespace Medusa
 {
-	namespace eval
+	namespace Evaluation
 	{
 		template<EvalColour C>
-		int material_score(Position &p, const Parameters &params)
+		int CalcMaterialScore(Position &p, const Parameters &params)
 		{
 			int S = 0;
 
-			S += params.get(PawnValue) * p.piecebb(C, PAWN).popcnt();
-			S += params.get(KnightValue) * p.piecebb(C, KNIGHT).popcnt();
-			S += params.get(RookValue) * p.piecebb(C, ROOK).popcnt();
-			S += params.get(BishopValue) * p.piecebb(C, BISHOP).popcnt();
-			S += params.get(QueenValue) * p.piecebb(C, QUEEN).popcnt();
+			S += params.Get(PawnValue) * p.PieceBoard(C, PAWN).PopCnt();
+			S += params.Get(KnightValue) * p.PieceBoard(C, KNIGHT).PopCnt();
+			S += params.Get(RookValue) * p.PieceBoard(C, ROOK).PopCnt();
+			S += params.Get(BishopValue) * p.PieceBoard(C, BISHOP).PopCnt();
+			S += params.Get(QueenValue) * p.PieceBoard(C, QUEEN).PopCnt();
 
 			return S;
 		}
 
 		template<EvalColour C>
-		int pawn_structure(Position &p, GamePhase phase, const Parameters &params)
+		int CalcPawnStructureScore(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
-			auto pawns = p.piecebb(C, PAWN);
+			auto pawns = p.PieceBoard(C, PAWN);
 
 			// Push pawns and get good pawn structure.
 			if (phase != Endgame)
 			{
 				// pawn structure: unmoved pawns
-				score -= params.get(UnmovedPawn) * unmovedpawns<C>(p);
+				score -= params.Get(UnmovedPawn) * CalcUnmovedPawns<C>(p);
 
 				// control the centre
-				score += params.get(CentralPawn) * (BB_CTR_SQR & pawns).popcnt();
+				score += params.Get(CentralPawn) * (BB_CTR_SQR & pawns).PopCnt();
 			}
 
 			for (auto it = pawns.begin(); it != pawns.end(); it.operator++())
 			{
 				auto sqr = Square(*it);
-				auto pwnbb = sqrbb(sqr);
+				auto pwnbb = SqrBb(sqr);
 				auto file = sqr % 8;
 				auto rank = sqr / 8;
 				auto filebb = files[file];
 
 				// pawn structure: doubled pawns
-				score -= params.get(DoubledPawn) * (pawns & filebb & (~pwnbb)).popcnt();
+				score -= params.Get(DoubledPawn) * (pawns & filebb & (~pwnbb)).PopCnt();
 
 				// Advanced pawns
 				if (phase == Endgame)
 				{
 					// Rank goes from 0 to 7, make it symmetric
 					int m = (C == White) ? 1 : -1;
-					score += m * (rank - 3) * params.get(AdvancedPawn);
+					score += m * (rank - 3) * params.Get(AdvancedPawn);
 				}
 			}
 
@@ -62,31 +62,31 @@ namespace medusa
 		}
 
 		template<EvalColour C>
-		int king_position(Position &p, GamePhase phase, const Parameters &params)
+		int CalcKingPositionScore(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
-			auto king = p.piecebb(C, KING);
-			int king_in_centre = (king & BB_CTR).popcnt();
-			int king_on_rim    = (king & BB_RIM).popcnt();
+			auto king = p.PieceBoard(C, KING);
+			int king_in_centre = (king & BB_CTR).PopCnt();
+			int king_on_rim    = (king & BB_RIM).PopCnt();
 
 			// 1. In the opening, the king should be out of the centre
 			if (phase != Endgame)
 			{
 				// King in the centre penalty during the opening.
-				score -= params.get(KingInCentre) * king_in_centre;
-				score += params.get(KingOnEdge) * king_on_rim;
+				score -= params.Get(KingInCentre) * king_in_centre;
+				score += params.Get(KingOnEdge) * king_on_rim;
 
 				// Squares around the king are attacked? 
-				auto kingsqr = bbsqr(king);
+				auto kingsqr = BbSqr(king);
 				auto around = neighbours[kingsqr];
-				auto them = ~get<C>();
-				auto pawns = p.piecebb(C, PAWN);
+				auto them = ~Get<C>();
+				auto pawns = p.PieceBoard(C, PAWN);
 				for (auto it = around.begin(); it != around.end(); it.operator++())
 				{
 					Square sqr = Square(*it);
-					auto bb = sqrbb(sqr);
-					score -= params.get(KingRingAttacked) * p.is_square_attacked(sqr, them);
-					score += params.get(KingRingShield) * (bb & pawns).popcnt();
+					auto bb = SqrBb(sqr);
+					score -= params.Get(KingRingAttacked) * p.IsSquareAttacked(sqr, them);
+					score += params.Get(KingRingShield) * (bb & pawns).PopCnt();
 				}
 			}
 
@@ -94,56 +94,56 @@ namespace medusa
 			// or knight on the rim in some cases.
 			if (phase == Endgame)
 			{
-				score -= params.get(KingOnEdge) * king_on_rim;
+				score -= params.Get(KingOnEdge) * king_on_rim;
 			}
 
 			return score;
 		}
 			
 		template<EvalColour C>
-		int minor_pieces(Position &p, GamePhase phase, const Parameters &params)
+		int CalcMinorPiecePotentialScore(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
-			auto knights = p.piecebb(C, KNIGHT);
+			auto knights = p.PieceBoard(C, KNIGHT);
 
 			// A knight on the rim is dim.
 			Bitboard knights_on_rim = knights & BB_RIM;
-			score -= params.get(KnightOnEdge) * knights_on_rim.popcnt();
-			auto undeveloped = undevelopedpcs<C>(p);
+			score -= params.Get(KnightOnEdge) * knights_on_rim.PopCnt();
+			auto undeveloped = CalcUndevelopedPieces<C>(p);
 
 			// 1. In the opening, develop the minor pieces to good squares.
 			if (phase == Opening)
 			{	
 				// Pieces that are not moved yet.
-				score -= params.get(UnmovedPiece) * undeveloped;
+				score -= params.Get(UnmovedPiece) * undeveloped;
 			}
 
 			// 2. In the middlegame, nothing changes, knight might want a more
 			// advanced outpost.
 			if (phase != Endgame)
 			{
-				score -= params.get(UnmovedPiece) * undeveloped;
-				auto us = get<C>();
+				score -= params.Get(UnmovedPiece) * undeveloped;
+				auto us = Get<C>();
 				auto them = ~us;
-				auto occupancy = p.occupants();
+				auto occupancy = p.Occupants();
 
 				// Bishops on long diagonals bonus (TODO: if they can be
 				// kicked or blocked?)
-				auto bishops = p.piecebb(C, BISHOP);
+				auto bishops = p.PieceBoard(C, BISHOP);
 				for (auto it = bishops.begin(); it != bishops.end(); it.operator++())
 				{
 					auto sqr = Square(*it);
-					auto bishop_influence = direction_attacks(occupancy, sqr, bishop_directions);
-					score += params.get(BishopControl) * (bishop_influence & (~BB_CTR_SQR)).popcnt();
-					score += params.get(BishopControl) * (bishop_influence & (BB_CTR_SQR)).popcnt();
+					auto bishop_influence = DirectionAttacks(occupancy, sqr, bishop_directions);
+					score += params.Get(BishopControl) * (bishop_influence & (~BB_CTR_SQR)).PopCnt();
+					score += params.Get(BishopControl) * (bishop_influence & (BB_CTR_SQR)).PopCnt();
 				}
 
 				// Knight on advanced outpost unable to be moved since
 				// no pawns in the neighbouring files can move towards.
 				// Opposite knight not currently attacking the square.
-				auto knightsctr = p.piecebb(C, KNIGHT) & BB_CTR_SQR;
-				auto theirpawns = p.piecebb(them, PAWN);
-				auto theirknights = p.piecebb(them, KNIGHT);
+				auto knightsctr = p.PieceBoard(C, KNIGHT) & BB_CTR_SQR;
+				auto theirpawns = p.PieceBoard(them, PAWN);
+				auto theirknights = p.PieceBoard(them, KNIGHT);
 				for (auto it = knightsctr.begin(); it != knightsctr.end(); it.operator++())
 				{
 					auto sqridx = *it;
@@ -163,7 +163,7 @@ namespace medusa
 					
 					// No knight attacking the square and no pawns can kick.
 					if (!(knight_attacks[sqr] & theirknights) && no_pawns)
-						score += params.get(KnightOutpost);
+						score += params.Get(KnightOutpost);
 				}
 			}
 
@@ -178,38 +178,38 @@ namespace medusa
 		}
 				
 		template <EvalColour C>
-		int developedpcs(const Position &p)
+		int CalcDevelopedPieces(const Position &p)
 		{
-			auto knights = p.piecebb(C, Piece::KNIGHT);
-			auto bishops = p.piecebb(C, Piece::BISHOP);
-			return (knights | bishops).popcnt() - undevelopedpcs<C>();
+			auto knights = p.PieceBoard(C, Piece::KNIGHT);
+			auto bishops = p.PieceBoard(C, Piece::BISHOP);
+			return (knights | bishops).PopCnt() - CalcUndevelopedPieces<C>();
 		}
 
 		template<EvalColour C>
-		int undevelopedpcs(const Position &p)
+		int CalcUndevelopedPieces(const Position &p)
 		{
 			auto back_rank_idx = C == White ? 0 : 7;
 			auto back_rank_bb = ranks[back_rank_idx];
-			auto knights = p.piecebb(C, Piece::KNIGHT);
-			auto bishops = p.piecebb(C, Piece::BISHOP);
-			return ((bishops | knights) & back_rank_bb).popcnt();
+			auto knights = p.PieceBoard(C, Piece::KNIGHT);
+			auto bishops = p.PieceBoard(C, Piece::BISHOP);
+			return ((bishops | knights) & back_rank_bb).PopCnt();
 		}
 
 		template<EvalColour C>
-		int unmovedpawns(const Position &p)
+		int CalcUnmovedPawns(const Position &p)
 		{
 			auto pawn_rank_idx = C == White ? 1 : 6;
 			auto pawn_rank_bb = ranks[pawn_rank_idx];
-			return  (p.piecebb(C, Piece::PAWN) & pawn_rank_bb).popcnt();
+			return  (p.PieceBoard(C, Piece::PAWN) & pawn_rank_bb).PopCnt();
 		}
 
 		template<EvalColour C>
-		GamePhase game_phase(const Position &p)
+		GamePhase CalcGamePhase(const Position &p)
 		{
-			auto occupancy = p.occupants(C);
-			int number_pieces = occupancy.popcnt();
-			int unmoved = unmovedpawns<C>(p);
-			int undeveloped = undevelopedpcs<C>(p);
+			auto occupancy = p.Occupants(C);
+			int number_pieces = occupancy.PopCnt();
+			int unmoved = CalcUnmovedPawns<C>(p);
+			int undeveloped = CalcUndevelopedPieces<C>(p);
 
 			// Simple rule, if less than 8 pieces then endgame, if 6 unmoved pawns and
 			// a single undeveloped piece then opening or if 2 or more undeveloped pieces,
@@ -225,14 +225,14 @@ namespace medusa
 
 		
 		template<EvalColour C>
-		int coordination(Position &p, GamePhase phase, const Parameters &params)
+		int CalcCoordinationScore(Position &p, GamePhase phase, const Parameters &params)
 		{
 			int score = 0;
-			auto us = get<C>();
+			auto us = Get<C>();
 			auto them = ~us;
-			auto occus = p.occupants(us);
-			auto occthem = p.occupants(them);
-			auto rooks = p.piecebb(C, ROOK);
+			auto occus = p.Occupants(us);
+			auto occthem = p.Occupants(them);
+			auto rooks = p.PieceBoard(C, ROOK);
 			if (phase != Endgame)
 			{
 				auto usnorooks = occus & ~(rooks);
@@ -240,14 +240,14 @@ namespace medusa
 				for (auto it = rooks.begin(); it != rooks.end(); it.operator++())
 				{
 					auto sqr = *it;
-					auto rbb = sqrbb(Square(sqr));
+					auto rbb = SqrBb(Square(sqr));
 					auto fidx = sqr % 8;
 					auto fbb = files[fidx];
 					if (!(usnorooks & occus & fbb))
 					{
-						score += params.get(RookSemiOpen);
+						score += params.Get(RookSemiOpen);
 						if (!(occthem & fbb))
-							score += params.get(RookOpenBonus);
+							score += params.Get(RookOpenBonus);
 					}
 				}
 			}
@@ -256,7 +256,7 @@ namespace medusa
 		}
 
 		template<EvalColour C>
-		int space(Position &p, GamePhase phase, const Parameters &params)
+		int CalcSpaceScore(Position &p, GamePhase phase, const Parameters &params)
 		{
 			// TODO: ...
 			return 0;
@@ -265,34 +265,34 @@ namespace medusa
 		template<EvalColour C>
 		int static_score(Position &p, const Parameters &params)
 		{
-			GamePhase phase = game_phase<C>(p);
+			GamePhase phase = CalcGamePhase<C>(p);
 			int S = 0;
 
 			// 1. Material
-			int s_material = material_score<C>(p, params);
+			int s_material = CalcMaterialScore<C>(p, params);
       		S += s_material;
 
 			// 2. Pawn structure
-			int s_pawn_structure = pawn_structure<C>(p, phase, params);
+			int s_pawn_structure = CalcPawnStructureScore<C>(p, phase, params);
 			S += s_pawn_structure;
 			
 			// 3. King position
-			int s_king_position = king_position<C>(p, phase, params);
+			int s_king_position = CalcKingPositionScore<C>(p, phase, params);
 			S += s_king_position;
 
 			// 4. Minor piece long term potential
-			int s_minor_pieces = minor_pieces<C>(p, phase, params);
+			int s_minor_pieces = CalcMinorPiecePotentialScore<C>(p, phase, params);
 			S += s_minor_pieces;
 
 			// 5. Co-ordination
-			int s_coordination = coordination<C>(p, phase, params);
+			int s_coordination = CalcCoordinationScore<C>(p, phase, params);
 			S += s_coordination;
 
 			// 6. Space
-			int s_space = space<C>(p, phase, params);
+			int s_space = CalcSpaceScore<C>(p, phase, params);
 			S += s_space;
-/*
-#ifdef _DEBUG
+
+#ifdef _DEBUG_OFF
 			std::cout << "Minor piece: " << s_minor_pieces << std::endl;
 			std::cout << "King position: " << s_king_position << std::endl;
 			std::cout << "Pawn structure: " << s_pawn_structure << std::endl;
@@ -300,21 +300,20 @@ namespace medusa
 			std::cout << "Material: " << s_material << std::endl;
 			std::cout << "Space: " << s_space << std::endl;
 #endif
-*/
+
 			return S;
 		}
 
-		int static_score(Position &p, const Parameters &params)
+		int StaticScore(Position &p, const Parameters &params)
 		{
 			int s_white = static_score<White>(p, params);
 			int s_black = static_score<Black>(p, params);
-/*
-#ifdef _DEBUG
+
+#ifdef _DEBUG_OFF
 			std::cout << "White: " << s_white << std::endl;
 			std::cout << "Black: " << s_black << std::endl;
 			std::cout << "Score: " << s_white-s_black << std::endl;
 #endif
-*/
 			return  s_white - s_black;
 		}
 	}

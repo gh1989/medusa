@@ -7,7 +7,7 @@
 #include "move.h"
 #include "types.h"
 
-namespace medusa
+namespace Medusa
 {
 	enum Piece { KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN, NUMBER_PIECES, NO_PIECE = -1 };
 
@@ -32,25 +32,25 @@ namespace medusa
 	};
 
 	// Source of move
-	Square from(Move move);
+	Square GetFrom(Move move);
 	// Destination of move
-	Square to(Move move);
+	Square GetTo(Move move);
 	// Type of special move
-	SpecialMove special_move(Move move);
+	SpecialMove SpecialMoveType(Move move);
 	// Promotion piece of move
-	Piece promotion_piece(Move move);
+	Piece PromotionPiece(Move move);
 	// Move as uci string
-	std::string as_uci(Move move);
+	std::string AsUci(Move move);
 	// Reflect move
-	Move reflect_move(Move move);
+	Move ReflectMove(Move move);
 	// Create move
-	Move create_move(Square from, Square to);
+	Move CreateMove(Square from, Square to);
 	// Create promotion move
-	Move create_promotion(Square from, Square to, Piece promo);
+	Move CreatePromotion(Square from, Square to, Piece promo);
 	// Create en passasnt move
-	Move create_en_passant(Square from, Square to);
+	Move CreateEnPassant(Square from, Square to);
 	// Create castle move
-	Move create_castle(Square from, Square to);
+	Move CreateCastle(Square from, Square to);
 
 	// Attack functions
 	// ----------------
@@ -262,7 +262,7 @@ namespace medusa
 	// Queenside castling path
 	static const Bitboard queenside_castle_route = 0xcULL;
 
-	Bitboard direction_attacks(Bitboard occupants, Square sqr, 
+	Bitboard DirectionAttacks(Bitboard occupants, Square sqr, 
 								const std::pair<int, int> *directions);
 	
 	static const std::string start_pos_fen = "";
@@ -279,37 +279,37 @@ namespace medusa
 	// Square functions
 	// ---------------
 	// Move a square
-	Bitboard bit_move(Bitboard bb, Square from, Square to);
+	Bitboard BitMove(Bitboard bb, Square from, Square to);
 	// Check if a square is on 
-	bool is_on(Bitboard bb, Square square);
+	bool IsOn(Bitboard bb, Square square);
 	// Turn a square off
-	Bitboard off_bit(Bitboard bb, Square off);
+	Bitboard OffBit(Bitboard bb, Square off);
 	// Turn a square on
-	Bitboard on_bit(Bitboard bb, Square on);
+	Bitboard OnBit(Bitboard bb, Square on);
 	// Convert bitboard to square
-	Square bbsqr(Bitboard bb);
+	Square BbSqr(Bitboard bb);
 	// Convert square to bitboard
-	Bitboard sqrbb(Square sqr);
+	Bitboard SqrBb(Square sqr);
 	// Reflect a square
-	Square reflect(Square sqr);
+	Square Reflect(Square sqr);
 	// Get square name as string
-	std::string square_name(Square sqr);
+	std::string SquareName(Square sqr);
 
 	// Variadic template way of getting several squares
 	// Get square
-	Bitboard get_sq(medusa::Square sqr);
+	Bitboard GetSquare(Medusa::Square sqr);
 
 	// Get square(s)
 	template<typename Square, typename... SqArgs>
-	static Bitboard get_sq(Square sqr, SqArgs... others)
+	static Bitboard GetSquare(Square sqr, SqArgs... others)
 	{
-		return get_sq(sqr) | get_sq(others...);
+		return GetSquare(sqr) | GetSquare(others...);
 	}
 
 	// Board geometry functions	
 	// ------------------------
 	// Reflect bitboard
-	Bitboard reflect(Bitboard bb);
+	Bitboard Reflect(Bitboard bb);
 	
 };
 

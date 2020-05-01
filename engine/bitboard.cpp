@@ -1,8 +1,8 @@
 #include "bitboard.h"
 
-namespace medusa
+namespace Medusa
 {
-	Bitboard rotate180(Bitboard bb)
+	Bitboard Rotate180(Bitboard bb)
 	{
 		const Bitboard h1 = 0x5555555555555555;
 		const Bitboard h2 = 0x3333333333333333;
@@ -20,7 +20,7 @@ namespace medusa
 		return bb & m1;
 	}
 
-	uint64_t _byteswap(uint64_t to_swap)
+	uint64_t _ByteSwap(uint64_t to_swap)
 	{
 		return _byteswap_uint64(to_swap);
 	}

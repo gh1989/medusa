@@ -8,7 +8,7 @@ Taken from Leela Chess
 #include <iostream>
 #include <thread>
 
-namespace medusa {
+namespace Medusa {
 
 namespace {
 size_t kBufferSizeLines = 200;

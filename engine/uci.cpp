@@ -16,7 +16,7 @@
 #include <utility>
 
 
-namespace medusa {
+namespace Medusa {
 
 	std::string GetOrEmpty(
 		const std::unordered_map<std::string, std::string>& params,
@@ -126,7 +126,7 @@ namespace medusa {
 
 	void UciLoop::SendBestMove(const BestMoveInfo& move)
 	{
-		std::string res = "bestmove " + as_uci(move.best_move);
+		std::string res = "bestmove " + AsUci(move.best_move);
 		SendResponse(res);
 	}
 
@@ -139,13 +139,13 @@ namespace medusa {
 			if (info.time >= 0) res += " time " + std::to_string(info.time);
 			if (info.nodes >= 0) res += " nodes " + std::to_string(info.nodes);
 			
-			if (!info.score.is_mate())
-				res += " score cp " + std::to_string(int(info.score.get_centipawns()));
+			if (!info.score.IsMate())
+				res += " score cp " + std::to_string(int(info.score.GetCentipawns()));
 			else
-				res += " score mate " + std::to_string(info.score.get_mate_in());
+				res += " score mate " + std::to_string(info.score.GetMateIn());
 			if (info.nps >= 0) res += " nps " + std::to_string(info.nps);
 
-			res += " pv " + get_line(info.pv);
+			res += " pv " + GetLine(info.pv);
 			reses.push_back(std::move(res));
 		}
 		SendResponses(reses);
@@ -176,7 +176,7 @@ namespace medusa {
 		const std::vector<std::string>& moves)
 	{
 		std::string fen = position;
-		if (fen.empty()) fen = medusa::start_pos_fen;
+		if (fen.empty()) fen = Medusa::start_pos_fen;
 		engine_.SetPosition(fen, moves);
 	}
 
@@ -190,11 +190,6 @@ namespace medusa {
 		engine_.Stop();
 	}
 
-	void UciLoop::SelfPlay()
-	{
-		engine_.SelfPlay();
-	}
-
 	bool UciLoop::DispatchCommand(
 		const std::string& command,
 		const std::unordered_map<std::string, std::string>& params)
@@ -202,10 +197,6 @@ namespace medusa {
 		if (command == "uci")
 		{
 			CmdUci();
-		}
-		else if (command == "selfplay")
-		{
-			SelfPlay();
 		}
 		else if (command == "isready")
 		{
@@ -340,14 +331,14 @@ namespace medusa {
 		// that divided by expected_moves. If time ever goes below 20 seconds then we
 		// should use [w/b]inc. 
 		go_params_ = params;
-		auto us = current_position_instance_.colour_to_move();
-		int ctime = us.is_black() ? go_params_.btime.value_or(0) : go_params_.wtime.value_or(0);
-		int cinc  = us.is_black() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
-		int emoves = 25;
-		int etime = ctime ;
-		int stime = std::max(etime / emoves, 500);
+
+		auto us = current_position_instance_.ToMove();
+		int ctime = us.IsBlack() ? go_params_.btime.value_or(0) : go_params_.wtime.value_or(0);
+		int cinc  = us.IsBlack() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
+		int emoves = std::max(20 - current_position_instance_.GetPlies()/2, 8);
+		int etime = ctime;
+		int stime = std::max(etime / emoves, 100);
 		stime = go_params_.movetime.value_or(stime);
-		LOGFILE << "Time per move (ms): " << stime << std::endl;
 
 		PvInfo::Callback info_callback(info_callback_);
 		BestMoveInfo::Callback best_move_callback(best_move_callback_);
@@ -357,7 +348,7 @@ namespace medusa {
 		if (current_position_)
 				SetupPosition(current_position_->fen, current_position_->moves);
 		else
-			SetupPosition(medusa::start_pos_fen, {});
+			SetupPosition(Medusa::start_pos_fen, {});
 
 		search_ = std::make_unique<Search>();
 		search_->StartThread(
@@ -366,13 +357,18 @@ namespace medusa {
 				best_move_callback_,
 				info_callback_,
 				stime);
+
+		LOGFILE << "Colour: " << (us.IsBlack() ? "Black" : "White") << std::endl;
+		LOGFILE << "Our time (s): " << ctime / 1000 << std::endl;
+		LOGFILE << "Expected moves left: " << emoves << std::endl;
+		LOGFILE << "Move time (s): " << stime / 1000 << std::endl;
 	}
 
 	// Must not block.
 	void EngineController::Stop()
 	{
 		if (search_)
-			search_->stop();
+			search_->Stop();
 	}
 
 	// Set up position.
@@ -382,22 +378,9 @@ namespace medusa {
 		SharedLock lock(busy_mutex_);
 		search_.reset();
 		
-		current_position_instance_ = position_from_fen(fen);
+		current_position_instance_ = PositionFromFen(fen);
 		std::vector<Move> moves;
 		for (const auto& move : moves_str) 
-			current_position_instance_.apply_uci(move);
-	}
-
-	void EngineController::SelfPlay()
-	{
-		current_position_instance_ = position_from_fen("");
-		current_position_instance_.pp();
-		search_ = std::make_unique<Search>();
-		search_->StartSelfPlay(
-				current_position_instance_,
-				go_params_.depth.value_or(20),
-				best_move_callback_,
-				info_callback_,
-				2000);		
+			current_position_instance_.ApplyUCI(move);
 	}
 }

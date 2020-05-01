@@ -8,19 +8,19 @@
 #include <string>
 #include <chrono>
 
-namespace medusa
+namespace Medusa
 {
 	// Piece string
-	std::string piece_string(Piece piece, Colour c);
+	std::string PieceString(Piece piece, Colour c);
 
 	// Piece strings lower
-	std::string piece_string_lower(Piece piece);
+	std::string PieceStringLower(Piece piece);
 
 	// Position from string (fen)
-	Position position_from_fen(std::string str);
+	Position PositionFromFen(std::string str);
 
 	// Bitboard from string
-	Bitboard bitboard_from_string(std::string str);
+	Bitboard BitboardFromString(std::string str);
 
 	// Steady clock to system clock
 	std::chrono::time_point<std::chrono::system_clock> SteadyClockToSystemClock(
@@ -79,31 +79,31 @@ namespace medusa
 	};
 
 	// Apply moves
-	void apply(Position &pos, std::shared_ptr<Variation> md);
+	void Apply(Position &pos, std::shared_ptr<Variation> md);
 
 	// Unapply moves
-	void unapply(Position &pos, std::shared_ptr<Variation> md);
+	void Unapply(Position &pos, std::shared_ptr<Variation> md);
 
 	// Get line
-	std::string get_line(std::shared_ptr<Variation> md);
+	std::string GetLine(std::shared_ptr<Variation> md);
 
 	// Print line
-	void print_line(std::shared_ptr<Variation> md);
+	void PrintLine(std::shared_ptr<Variation> md);
 
 	// Join line
-	void join(
+	void Join(
 		std::shared_ptr<Variation> md,
 		std::shared_ptr<Variation> md_after,
 		Move move);
 
 	// End of line
-	std::shared_ptr<Variation> end(std::shared_ptr<Variation> md);
+	std::shared_ptr<Variation> End(std::shared_ptr<Variation> md);
 
 	// Start of line
-	std::shared_ptr<Variation> begin(std::shared_ptr<Variation> md);
+	std::shared_ptr<Variation> Begin(std::shared_ptr<Variation> md);
 
 	// Size of line
-	size_t size(std::shared_ptr<Variation> md);
+	size_t Size(std::shared_ptr<Variation> md);
 
 	// Exception.
 	class Exception : public std::runtime_error {

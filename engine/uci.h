@@ -15,7 +15,7 @@
 #include "utils.h"
 #include "utils/mutex.h"
 
-namespace medusa {
+namespace Medusa {
 
 	// Known commands.
 	namespace {
@@ -81,8 +81,6 @@ namespace medusa {
 		void Go(const GoParams& params);
 		// Must not block.
 		void Stop();
-		// Self play.
-		void SelfPlay();
 
 	private:
 		void SetupPosition(const std::string& fen,
@@ -128,7 +126,6 @@ namespace medusa {
 			const std::vector<std::string>&);
 		void CmdGo(const GoParams&);
 		void CmdStop();
-		void SelfPlay();
 
 	private:
 		bool DispatchCommand(
