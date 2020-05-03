@@ -39,9 +39,6 @@
     <ClInclude Include="evaluation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="parameters.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="search.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -134,11 +134,7 @@ namespace Medusa
 		if (clear_enpassant)
 			enpassant = 0;
 
-#ifdef _DEBUG
-		tick_forward(AsUci(move));
-#else
 		TickForward();
-#endif
 	}
 
 	void Position::Unapply(Move move)
@@ -300,7 +296,7 @@ namespace Medusa
 	{
 		auto psuedo_legal = PseudoLegalMoves<Any>();
 		bool check_d = IsInCheck();
-		auto pred = [this, check_d](Move move) {return !this->IsIllegalMove(move, check_d);  };
+		auto pred = [this, check_d](Move move) {return !IsIllegalMove(move, check_d);  };
 		return std::any_of(psuedo_legal.begin(), psuedo_legal.end(), pred);
 	}
 
@@ -310,12 +306,12 @@ namespace Medusa
 		Colour us = to_move;
 		Colour them = ~to_move;
 
-		auto king = this->PieceBoard(us, KING);
+		auto king = PieceBoard(us, KING);
 		bool check_discovered = check_discovered_;
 
-		auto their_rooks = this->PieceBoard(them, ROOK);
-		auto their_queens = this->PieceBoard(them, QUEEN);
-		auto their_bishops = this->PieceBoard(them, BISHOP);
+		auto their_rooks = PieceBoard(them, ROOK);
+		auto their_queens = PieceBoard(them, QUEEN);
+		auto their_bishops = PieceBoard(them, BISHOP);
 
 		if (this->GetAttacker(move) == KING)
 			check_discovered = true;

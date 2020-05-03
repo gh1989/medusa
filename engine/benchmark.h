@@ -3,19 +3,51 @@
 
 #include "evaluation.h"
 #include "utils.h"
-#include "parameters.h"
 #include "position.h"
+#include "search.h"
 
 namespace Medusa
 {
 	using namespace Evaluation;
 
+	void test_bizarre_knight_sac()
+	{
+		auto pos = PositionFromFen("");
+		pos.PrettyPrint();
+		pos = PositionFromFen("r1bqkb1r/pppppppp/5n2/8/1nPP4/P1N5/1P2PPPP/R1BQKBNR b KQkq - 0 4");
+		pos.PrettyPrint();
+
+		/*
+		
+		pos.Apply(move);
+		MoveSelector ms(pos, true);
+		auto moves = ms.GetMoves(); // Does find Qxc2
+		pos.Unapply(move);
+		pos.PrettyPrint();
+		*/	   
+		Search srch;
+		std::shared_ptr<Variation> moves_after(new Variation());
+		auto beta = Score::Checkmate(1);
+		auto alpha = Score::Checkmate(-1);
+		int max_depth = 3;
+		auto score = -srch._Search(pos, moves_after, -beta, -alpha, max_depth - 1, 0);
+		
+		auto move = CreateMove(b4, c2); // Nxc2?
+		pos.Apply(move);
+		auto score1 = srch._Search(pos, moves_after, alpha, beta, max_depth - 2, 1);
+	}
+
 	void test_evaluation()
 	{
 		auto pos = PositionFromFen("5k1r/1Rp1r3/2n1pp2/2Pp4/p4P1p/b3BRPB/P1P4P/6K1 b - - 3 31");
 		pos = PositionFromFen("rnbqkbnr/p3pppp/8/2p5/2N5/8/PPPPPP1R/R1BQKB1R w KQkq - 0 1");
-		Parameters params;
-		StaticScore(pos, params);
+		StaticScore(pos);
+	}
+
+	void test_legal_moves()
+	{
+		auto pos = PositionFromFen("");
+		pos.PseudoLegalMoves<Any>();
 	}
 
 	void test_infinite_score()
@@ -37,8 +69,9 @@ namespace Medusa
 		// Bug: "5k1r/1Rp1r3/2n1pp2/2Pp4/p4P1p/b3BRPB/P1P4P/6K1 b - - 3 31" attempted h4a2? 
 		// Needed to prevent taking if file is A or H
 		auto pos = PositionFromFen("5k1r/1Rp1r3/2n1pp2/2Pp4/p4P1p/b3BRPB/P1P4P/6K1 b - - 3 31");
-		auto moves = pos.LegalPawnMoves<Any>(pos.ToMove());
-		for (auto m : moves)
+		std::vector<Move> *moves(new std::vector<Move>());
+		pos.LegalPawnMoves<Any>(pos.ToMove(), moves);
+		for (auto m : *moves)
 		{
 			std::cout << m << ": " << AsUci(m) << std::endl;
 		}
@@ -177,36 +210,6 @@ namespace Medusa
 			"8/8/8/1pp5/k1b5/8/3K4/8 b - - 1 58",
 			"8/pp6/2p1b3/6P1/P2b2kP/1P6/2P5/3NK3 w - - 1 40"
 		};
-
-		// Check game phase
-		for (const auto &fen : openings)
-		{
-			auto pos = PositionFromFen(fen);
-			auto phase_white = CalcGamePhase<Evaluation::White>(pos);
-			auto phase_black = CalcGamePhase<Evaluation::Black>(pos);
-			std::cout << fen << std::endl;
-			std::cout << phase_white << phase_black << std::endl;
-		}
-
-		// Check game phase
-		for (const auto &fen : middlegames)
-		{
-			auto pos = PositionFromFen(fen);
-			auto phase_white = CalcGamePhase<Evaluation::White>(pos);
-			auto phase_black = CalcGamePhase<Evaluation::Black>(pos);
-			std::cout << fen << std::endl;
-			std::cout << phase_white << phase_black << std::endl;
-		}
-
-		// Check game phase
-		for (const auto &fen : endgames)
-		{
-			auto pos = PositionFromFen(fen);
-			auto phase_white = CalcGamePhase<Evaluation::White>(pos);
-			auto phase_black = CalcGamePhase<Evaluation::Black>(pos);
-			std::cout << fen << std::endl;
-			std::cout << phase_white << phase_black << std::endl;
-		}
 	}
 
 	void test_bitboard_arithmetic()
@@ -226,8 +229,9 @@ namespace Medusa
 	void test_promotion_capture()
 	{
 		auto pos = PositionFromFen("6r1/7P/p7/Pr6/4pPK1/2k1B3/5P2/8 w - - 0 52");
-		auto legals = pos.LegalPawnMoves<Any>(1);
-		for (auto m : legals)
+		std::vector<Move> *legals(new std::vector<Move>());
+		pos.LegalPawnMoves<Any>(1, legals);
+		for (auto m : *legals)
 		{
 			std::cout << AsUci(m) << std::endl;
 		}
@@ -262,11 +266,13 @@ namespace Medusa
 		new_pos.ApplyUCI("b8c6");
 		new_pos.ApplyUCI("b1a3");
 		auto moves = new_pos.LegalMoves<Any>();
+		/*
 		for (auto move : moves)
 		{
 			std::cout << AsUci(move) << std::endl;
 		}
 		new_pos.PrettyPrint();
+		*/
 	}
 }
 

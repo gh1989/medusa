@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <unordered_map>
 
 #include "board.h"
 #include "utils.h"
@@ -13,18 +14,25 @@ namespace Medusa
 		{
 			auto dir = directions[i];
 			int sidx = static_cast<int>(sqr);
-			while (true)
+			int old_sidx = sidx;
+			auto dr = 8 * dir.first + dir.second;
+
+			for (int j=0; j<8; j++)
 			{
-				int old_sidx = sidx;
-				sidx += 8*dir.first + dir.second;
+				old_sidx = sidx;
+				sidx += dr;
+
 				// Out of bounds, break.
 				if (sidx < 0 || sidx > 63)
 					break;
+
 				// New square is not neighbouring the old one, break.
 				if(!(squares[sidx] & neighbours[old_sidx]))
 					break;
+
 				// New square is attacked
 				attacked = attacked | squares[sidx];
+
 				// Bumped into an occupant, square is attacked (defended), break.
 				if (squares[sidx] & occupants)
 					break;
@@ -59,10 +67,24 @@ namespace Medusa
 		Bitboard s = SqrBb(on);
 		return bb | s;
 	}
+
+	template<class Iter, class T>
+	Iter binary_find(Iter begin, Iter end, T val)
+	{
+		// Finds the lower bound in at most log(last - first) + 1 comparisons
+		Iter i = std::lower_bound(begin, end, val);
+
+		if (i != end && !(val < *i))
+			return i; // found
+		else
+			return end; // not found
+	}
+
 	// Convert bitboard to square
 	Square BbSqr(Bitboard bb)
 	{
 		return static_cast<Square>(bb.nMSB());
+		return square_lookup.at(bb);
 	}
 	// Convert square to bitboard
 	Bitboard SqrBb(Square sqr)

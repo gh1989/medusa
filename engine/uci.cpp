@@ -333,8 +333,9 @@ namespace Medusa {
 		go_params_ = params;
 
 		auto us = current_position_instance_.ToMove();
-		int ctime = us.IsBlack() ? go_params_.btime.value_or(0) : go_params_.wtime.value_or(0);
-		int cinc  = us.IsBlack() ? go_params_.binc.value_or(0) : go_params_.winc.value_or(0);
+		auto dfttime = 60000;
+		int ctime = us.IsBlack() ? go_params_.btime.value_or(dfttime) : go_params_.wtime.value_or(dfttime);
+		int cinc  = us.IsBlack() ? go_params_.binc.value_or(dfttime) : go_params_.winc.value_or(dfttime);
 		int emoves = std::max(20 - current_position_instance_.GetPlies()/2, 8);
 		int etime = ctime;
 		int stime = std::max(etime / emoves, 100);
@@ -353,15 +354,15 @@ namespace Medusa {
 		search_ = std::make_unique<Search>();
 		search_->StartThread(
 				current_position_instance_, 
-				go_params_.depth.value_or(20),
+				go_params_.depth.value_or(2),
 				best_move_callback_,
 				info_callback_,
 				stime);
 
-		LOGFILE << "Colour: " << (us.IsBlack() ? "Black" : "White") << std::endl;
-		LOGFILE << "Our time (s): " << ctime / 1000 << std::endl;
-		LOGFILE << "Expected moves left: " << emoves << std::endl;
-		LOGFILE << "Move time (s): " << stime / 1000 << std::endl;
+		LOGFILE << "Colour: " << (us.IsBlack() ? "Black" : "White");
+		LOGFILE << "Our time (s): " << ctime / 1000;
+		LOGFILE << "Expected moves left: " << emoves;
+		LOGFILE << "Move time (s): " << stime / 1000;
 	}
 
 	// Must not block.
@@ -382,5 +383,10 @@ namespace Medusa {
 		std::vector<Move> moves;
 		for (const auto& move : moves_str) 
 			current_position_instance_.ApplyUCI(move);
+
+#ifdef _DEBUG
+		current_position_instance_.PrettyPrint();
+#endif
+
 	}
 }

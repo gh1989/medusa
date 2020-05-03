@@ -126,7 +126,6 @@
     <ClInclude Include="bitboard.h" />
     <ClInclude Include="board.h" />
     <ClInclude Include="evaluation.h" />
-    <ClInclude Include="parameters.h" />
     <ClInclude Include="move.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="search.h" />

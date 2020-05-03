@@ -19,7 +19,6 @@
 #include "move.h"
 #include "utils.h"
 #include "evaluation.h"
-#include "parameters.h"
 
 namespace Medusa 
 {
@@ -101,7 +100,6 @@ namespace Medusa
 
 		size_t GetNodesSearched() const { return nodes_searched; }
 
-	private:
 		Score _Search(
 			Position &pos,
 			std::shared_ptr<Variation> md,
@@ -116,6 +114,8 @@ namespace Medusa
 			Score beta,
 			int max_depth,
 			size_t plies_from_root);
+	private:
+
 
 		static size_t Perft(Position &position, size_t depth);
 		static bool searching_flag;
@@ -135,7 +135,6 @@ namespace Medusa
 		std::atomic<bool> stop_{ false };
 		BestMoveInfo best_move_info;
 		PvInfo::Callback info_callback;
-		Parameters params;
 };
 
 	const int CHCK_PRI = 1000.0;
@@ -143,8 +142,9 @@ namespace Medusa
 
 	class MoveSelector
 	{
+
 	public:
-		MoveSelector(Position &pos, bool include_quiet, const Parameters &params_);
+		MoveSelector(Position &pos, bool include_quiet);
 		bool Any() const { return !moves.empty(); }
 		auto GetMoves() const { return moves; }
 		size_t NumMoves() const { return moves.size(); }
@@ -152,7 +152,6 @@ namespace Medusa
 
 	private:
 		std::multimap<int, Move> moves;
-		Parameters params;
 	};
 	   
 	inline int MoveSelector::SEE(Position &pos, Move move)
@@ -176,7 +175,7 @@ namespace Medusa
 		int smallest_attacker = 100000;
 		for (auto m : next_moves)
 		{
-			int attacker = params.Get( ParameterID( pos.GetAttacker(next_move) ) );
+			int attacker = Evaluation::piece_values.at( pos.GetAttacker(next_move) );
 			if (attacker <= smallest_attacker)
 			{
 				smallest_attacker = attacker;
@@ -187,7 +186,7 @@ namespace Medusa
 		// === Apply ====
 		auto captured = pos.Captured(next_move);
 		pos.Apply(next_move);
-		int capture_value = params.Get(ParameterID(captured)) - SEE(pos, next_move);
+		int capture_value = Evaluation::piece_values.at(captured) - SEE(pos, next_move);
 		pos.Unapply(next_move);
 		// === unapply ====
 

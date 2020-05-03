@@ -29,7 +29,7 @@ namespace Medusa
 		score.centipawns_for = centipawns;
 		score.unavoidable_mate = false;
 		score.mate_in = 0;
-		score.depth;
+		score.depth = depth;
 		return score;
 	}
 

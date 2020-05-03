@@ -131,14 +131,14 @@ namespace Medusa {
 
 		void TickForward(
 #ifdef _DEBUG
-			std::string move_str
+			//std::string move_str
 #endif
 		)
 		{
 			to_move = ~to_move;
 			plies++;
 #ifdef _DEBUG
-			past_moves.push_back(move_str);
+			//past_moves.push_back(move_str);
 #endif
 
 		}
@@ -147,9 +147,6 @@ namespace Medusa {
 		{
 			to_move = ~to_move;
 			plies--;
-#ifdef _DEBUG
-			past_moves.pop_back();
-#endif
 		}
 
 		void SetPlies(int plies_)
@@ -220,21 +217,29 @@ namespace Medusa {
 		bool IsIllegalMove(Move move, bool check_discovered_);
 
 		template <Piece piece, MoveType MT>
-		std::vector<Move> LegalJumperMoves(
-			Colour colour,
-			const Bitboard* attacks) const;
+		void LegalJumperMoves(
+			Colour us,
+			const Bitboard* attacks,
+			std::vector<Move>* moves) const;
 
 		template <Piece piece, MoveType MT>
-		std::vector<Move> LegalSliderMoves(
-			Colour colour,
-			const std::pair<int, int> *directions) const;
+		void LegalSliderMoves(
+			Colour us,
+			const std::pair<int, int>* directions,
+			std::vector<Move>* moves) const;
 
 		template <MoveType MT>
-		std::vector<Move> LegalPawnMoves(Colour colour) const;
+		void LegalPawnMoves(
+			Colour colour, 
+			std::vector<Move>* moves) const;
 
 		template <MoveType MT>
-		std::vector<Move> LegalCastlingMoves(Colour colour) const;
+		void LegalCastlingMoves(
+			Colour colour, 
+			std::vector<Move>* moves) const;
+
 		bool IsSquareAttacked(const Bitboard& square, Colour colour) const;
+
 		void set_colour(Colour colour) { to_move = colour; }
 		bool IsInCheck() const;
 		bool IsCheckmate();
@@ -329,41 +334,32 @@ namespace Medusa {
 	inline std::vector<Move> Position::PseudoLegalMoves()
 	{
 		Colour us = to_move;
-		std::vector<Move> moves;
+		std::vector<Move> *moves(new std::vector<Move>());
 
 		// There are not going to be more than 64 legal moves in a standard game.
-		moves.reserve(64);
+		moves->reserve(64);
 
-		// Get all moves
-		auto rook_moves = LegalSliderMoves<ROOK, MT>(us, rook_directions);
-		auto bishop_moves = LegalSliderMoves<BISHOP, MT>(us, bishop_directions);
-		auto queen_1 = LegalSliderMoves<QUEEN, MT>(us, bishop_directions);
-		auto queen_2 = LegalSliderMoves<QUEEN, MT>(us, rook_directions);
-		auto knight_moves = LegalJumperMoves<KNIGHT, MT>(us, knight_attacks);
-		auto king_moves = LegalJumperMoves<KING, MT>(us, neighbours);
-		auto king_castling = LegalCastlingMoves<MT>(us);
-		auto pawn_moves = LegalPawnMoves<MT>(us);
+		// Must do this first.
+		LegalPawnMoves<MT>(us, moves);
 
-		// Insert them all at the end
-		moves.insert(moves.end(), pawn_moves.begin(), pawn_moves.end());
-		moves.insert(moves.end(), rook_moves.begin(), rook_moves.end());
-		moves.insert(moves.end(), bishop_moves.begin(), bishop_moves.end());
-		moves.insert(moves.end(), queen_1.begin(), queen_1.end());
-		moves.insert(moves.end(), queen_2.begin(), queen_2.end());
-		moves.insert(moves.end(), king_moves.begin(), king_moves.end());
-		moves.insert(moves.end(), knight_moves.begin(), knight_moves.end());
-		moves.insert(moves.end(), king_castling.begin(), king_castling.end());
+		// Add all moves
+		LegalJumperMoves<KNIGHT, MT>(us, knight_attacks, moves);
+		LegalJumperMoves<KING, MT>(us, neighbours, moves);
+		LegalSliderMoves<ROOK, MT>(us, rook_directions, moves);
+		LegalSliderMoves<BISHOP, MT>(us, bishop_directions, moves);
+		LegalSliderMoves<QUEEN, MT>(us, bishop_directions, moves);
+		LegalSliderMoves<QUEEN, MT>(us, rook_directions, moves);
+		LegalCastlingMoves<MT>(us, moves);
 
-		return moves;
+		return (*moves);
 	}
-
-
+	
 	template <Piece piece, MoveType MT>
-	inline std::vector<Move> Position::LegalJumperMoves(
+	inline void Position::LegalJumperMoves(
 		Colour us,
-		const Bitboard* attacks) const
+		const Bitboard* attacks,
+		std::vector<Move>* moves) const
 	{
-		std::vector<Move> moves;
 		Bitboard piecebb = bitboards[us.Index()][piece];
 		Bitboard ours = Occupants(us);
 		Bitboard theirs = Occupants(~us);
@@ -378,20 +374,22 @@ namespace Medusa {
 			{
 				Square sqr2 = Square(*it2);
 				auto move = CreateMove(Square(sqr), Square(sqr2));
-				moves.emplace_back(move);
+				moves->emplace_back(move);
 			}
 		}
-		return moves;
 	}
 
 	template <Piece piece, MoveType MT>
-	inline std::vector<Move> Position::LegalSliderMoves(Colour us, const std::pair<int, int> *directions) const
+	inline void Position::LegalSliderMoves(
+		Colour us, 
+		const std::pair<int, int>* directions, 
+		std::vector<Move>* moves) const
 	{
-		std::vector<Move> moves;
 		Colour them = ~us;
 		Bitboard piecebb = bitboards[us.Index()][piece];
 		Bitboard theirs = Occupants(them);
 		Bitboard ours = Occupants(us);
+
 		for (auto it = piecebb.begin(); it != piecebb.end(); it.operator++())
 		{
 			Square sqr = Square(*it);
@@ -427,18 +425,18 @@ namespace Medusa {
 					if (MT == Capture && !(theirs & squares[sidx]))
 						continue;
 
-					moves.emplace_back(move);
+					moves->emplace_back(move);
 					if (new_bb&theirs)
 						break;
 				}
 			}
 		}
-
-		return moves;
 	}
 
 	template <MoveType MT>
-	inline std::vector<Move> Position::LegalPawnMoves(Colour colour) const
+	inline void Position::LegalPawnMoves(
+		Colour colour, 
+		std::vector<Move>* moves) const
 	{
 		// Work out on the pawn moves based on the reflected position.
 		Position context(*this);
@@ -452,9 +450,6 @@ namespace Medusa {
 			ROOK,
 			QUEEN
 		};
-
-		std::vector<Move> moves;
-		moves.reserve(64);
 
 		// Get the position information from the potentially reflected position.
 		Bitboard pawns = context.bitboards[colour.Index()][PAWN];
@@ -475,13 +470,13 @@ namespace Medusa {
 				{
 					Bitboard push_twice = square << 16;
 					if (!(push_twice & occ))
-						moves.emplace_back(CreateMove(sqr, Square(sqr + 16)));
+						moves->emplace_back(CreateMove(sqr, Square(sqr + 16)));
 				}
 				if (rank == 6) // 7th rank, promotion
 					for (auto& prom : promote_pieces)
-						moves.emplace_back(CreatePromotion(sqr, Square(sqr + 8), prom));
+						moves->emplace_back(CreatePromotion(sqr, Square(sqr + 8), prom));
 				else
-					moves.emplace_back(CreateMove(sqr, Square(sqr + 8)));
+					moves->emplace_back(CreateMove(sqr, Square(sqr + 8)));
 			}
 
 			// Captures
@@ -501,14 +496,14 @@ namespace Medusa {
 					{
 						if (rank == 6) // 7th rank, promotion
 							for (auto& prom : promote_pieces)
-								moves.emplace_back(CreatePromotion(sqr, to, prom));
+								moves->emplace_back(CreatePromotion(sqr, to, prom));
 						else
 						{
 							// Taking enpassant
 							if (pawn_attacks[sqr] & enpassant)
-								moves.emplace_back(CreateEnPassant(sqr, to));
+								moves->emplace_back(CreateEnPassant(sqr, to));
 							else
-								moves.emplace_back(CreateMove(sqr, to));
+								moves->emplace_back(CreateMove(sqr, to));
 						}
 					}
 				}
@@ -519,21 +514,20 @@ namespace Medusa {
 		if (colour.IsBlack())
 		{
 			std::transform(
-				moves.begin(),
-				moves.end(),
-				moves.begin(),
+				moves->begin(),
+				moves->end(),
+				moves->begin(),
 				[](Move move) { return ReflectMove(move); });
 		}
-
-		return moves;
 	}
 
 	template <MoveType MT>
-	inline std::vector<Move> Position::LegalCastlingMoves(Colour colour) const
+	inline void Position::LegalCastlingMoves(
+		Colour colour, 
+		std::vector<Move>* moves) const
 	{
-		std::vector<Move> moves;
 		if (MT == Capture)
-			return moves;
+			return;
 
 		bool black = colour.IsBlack();
 		auto castling = GetCastling();
@@ -561,7 +555,7 @@ namespace Medusa {
 				if (unobstructed)
 				{
 					auto move = CreateCastle(black ? e8 : e1, black ? c8 : c1);
-					moves.push_back(move);
+					moves->push_back(move);
 				}
 			}
 		}
@@ -579,12 +573,10 @@ namespace Medusa {
 				if (unobstructed)
 				{
 					auto move = CreateCastle(black ? e8 : e1, black ? g8 : g1);
-					moves.push_back(move);
+					moves->push_back(move);
 				}
 			}
 		}
-
-		return moves;
 	}
 }
 
