@@ -130,6 +130,7 @@
     <ClInclude Include="moveiter.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="search.h" />
+    <ClInclude Include="thread.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="uci.h" />
     <ClInclude Include="utils.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="moveiter.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="search.cpp" />
+    <ClCompile Include="thread.cpp" />
     <ClCompile Include="types.cpp" />
     <ClCompile Include="uci.cpp" />
     <ClCompile Include="utils.cpp" />

@@ -51,6 +51,9 @@
     <ClInclude Include="moveiter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="thread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="types.cpp">
@@ -84,6 +87,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="moveiter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="thread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

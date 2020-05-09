@@ -303,7 +303,7 @@ namespace Medusa {
 		// newgame and goes straight into go.
 		move_start_time_ = std::chrono::steady_clock::now();
 		SharedLock lock(busy_mutex_);
-		search_.reset();
+		thread_.reset();
 		time_spared_ms_ = 0;
 		current_position_.reset();
 	}
@@ -317,7 +317,7 @@ namespace Medusa {
 		move_start_time_ = std::chrono::steady_clock::now();
 		SharedLock lock(busy_mutex_);
 		current_position_ = CurrentPosition{ fen, moves_str };
-		search_.reset();
+		thread_.reset();
 	}
 
 	// Must not block.
@@ -332,17 +332,8 @@ namespace Medusa {
 		// should use [w/b]inc. 
 		go_params_ = params;
 
-		auto us = current_position_instance_.ToMove();
-		auto dfttime = 60000;
-		int ctime = us.IsBlack() ? go_params_.btime.value_or(dfttime) : go_params_.wtime.value_or(dfttime);
-		int cinc  = us.IsBlack() ? go_params_.binc.value_or(dfttime) : go_params_.winc.value_or(dfttime);
-		int emoves = std::max(20 - current_position_instance_.GetPlies()/2, 8);
-		int etime = ctime;
-		int stime = std::max(etime / emoves, 100);
-		stime = go_params_.movetime.value_or(stime);
-
-		PvInfo::Callback info_callback(info_callback_);
-		BestMoveInfo::Callback best_move_callback(best_move_callback_);
+		PvInfo::Callback info(info_callback_);
+		BestMoveInfo::Callback bestmove(best_move_callback_);
 
 		// Setting up current position, now that it's known whether it's ponder or
 		// not.
@@ -351,25 +342,20 @@ namespace Medusa {
 		else
 			SetupPosition(Medusa::start_pos_fen, {});
 
-		search_ = std::make_unique<Search>();
-		search_->StartThread(
-				current_position_instance_, 
-				go_params_.depth.value_or(2),
-				best_move_callback_,
-				info_callback_,
-				stime);
+		thread_ = std::make_unique<Thread>();
 
-		LOGFILE << "Colour: " << (us.IsBlack() ? "Black" : "White");
-		LOGFILE << "Our time (s): " << ctime / 1000;
-		LOGFILE << "Expected moves left: " << emoves;
-		LOGFILE << "Move time (s): " << stime / 1000;
+		thread_->StartThread(
+			current_position_instance_,
+			go_params_.depth.value_or(2),
+			bestmove,
+			info);
 	}
 
 	// Must not block.
 	void EngineController::Stop()
 	{
-		if (search_)
-			search_->Stop();
+		if (thread_)
+			thread_->Stop();
 	}
 
 	// Set up position.
@@ -377,7 +363,7 @@ namespace Medusa {
 		const std::vector<std::string>& moves_str)
 	{
 		SharedLock lock(busy_mutex_);
-		search_.reset();
+		thread_.reset();
 		
 		current_position_instance_ = PositionFromFen(fen);
 		std::vector<Move> moves;

@@ -33,41 +33,48 @@ size_t Search::Perft(Position &position, size_t max_depth)
 	return nodes;
 }
 
-void Search::Start(const Position &pos, int max_depth)
+std::shared_ptr<Variation> Search::SearchRoot(Position &position_, int max_depth_)
 {
-	/// Start the thread. At the moment this is kind of trivial.
-	/// The thread cannot exit mid search right now.
-	auto _searching_lambda = [this, pos, max_depth](){
-		auto cpos = pos;
-		SearchRoot(cpos, max_depth);
-	};
-	threads.emplace_back(_searching_lambda);
+	auto vrtn = IterWindowSearch(position_, max_depth_);
+	return vrtn;
 }
 
-std::shared_ptr<Variation> Search::SearchRoot(Position &position_, int max_depth)
+std::shared_ptr<Variation> Search::IterWindowSearch(
+	Position &position_,
+	int max_depth_
+)
 {
 	std::shared_ptr<Variation> vrtn(new Variation());
-
-	/// Start the search with alpha and beta at maximum bounds
-	/// +/- infinite, which is higher scoring than mate in one,
-	/// in case there is a mate in one at depth 0.
 	auto alpha = -Score::Infinite();
 	auto beta = Score::Infinite();
-
-	/// Every level of the search is a maximizer of the score,
-	/// which means that the logic is essentially that of scoring
-	/// in favour of the white pieces. So negate the search root 
-	/// node for the black pieces if they are the root.
-	if (position_.ToMove().IsBlack()) {
-		-QSearch(position_, -beta, -alpha, vrtn, 0);
-	}
-	else {
-		QSearch(position_, alpha, beta, vrtn, 0);
-	}
+	max_depth = 2; // estimation stage
+	auto est = QSearchEitherColour(position_, alpha, beta, vrtn);
+	max_depth = max_depth_;
+	QSearchEitherColour(position_, est, est + 25, vrtn);
 
 	// Need to clear the position history, used for 3 move repetition.
 	PositionHistory::Clear();
 	return vrtn;
+}
+
+Score Search::QSearchEitherColour(
+	Position& position_,
+	Score alpha,
+	Score beta,
+	std::shared_ptr<Variation> vrtn)
+{
+	/// Every level of the search is a maximizer of the score,
+	/// which means that the logic is essentially that of scoring
+	/// in favour of the white pieces. So negate the search root 
+	/// node for the black pieces if they are the root.
+	Score score;
+	if (position_.ToMove().IsBlack()) {
+		score = QSearch(position_, -beta, -alpha, vrtn, 0);
+	}
+	else {
+		score = QSearch(position_, alpha, beta, vrtn, 0);
+	}
+	return score;
 }
 
 Score Evaluate(Position &position, int dfr)
@@ -90,7 +97,7 @@ Score Evaluate(Position &position, int dfr)
 	if (!position.AnyLegalMove())
 	{
 		if (position.IsInCheck())
-			stateval = -Score::Checkmate(dfr);
+			stateval = -Score::Checkmate(dfr); 
 		else
 			stateval = Score::Centipawns(0, dfr);
 	}
@@ -148,7 +155,7 @@ Score Search::QSearch(
 	for (auto move = moveIterator.begin(); move != moveIterator.end(); ++move)
 	*/
 
-	MoveSelector msel(position, dfr == 0);
+	MoveSelector msel(position, dfr <= max_depth);
 	auto mvs = msel.GetMoves();	
 	for(auto mv : mvs)
 	{
@@ -161,37 +168,35 @@ Score Search::QSearch(
 		auto score = -QSearch( position, -beta, -alpha, vrtnMore, dfr+1);
 		position.Unapply(mv.second);
 
-		/// Update best score. Alpha is the beta of this branch, 
-		/// beta is the most possible to be scored, if we are
-		/// larger than beta then must return beta. If the beta score.
-		/// It has to be larger than or equal to alpha in updating because
-		/// the bounds are mate in one, and if there is a mate in one, 
-		/// we still need to the move to update.
+		/// Update alpha. If alpha is never updated we will get a fail-low situation.
+		/// Fail-low: A fail-low indicates that this position was not good enough for us. 
+		/// We will not reach this position, because we have some other means of reaching 
+		/// a position that is better.  We will not make the move that allowed the opponent 
+		/// to put us in this position. A fail low node did not improve alpha.
 		if (score > alpha)
 		{
 			alpha = score;
 			Join(vrtn, vrtnMore, mv.second);
 		}
 
-		/// If alpha is larger than beta, then the least expected from
-		/// this branch is currently greater than the most we can expect.
-		/// this may not be possible if we start with infinite bounds
-		/// but when approximating alpha and beta in a search it can 
-		/// happen and should fail for a research.
+		/// A fail - high indicates that the search found something that was
+		/// "too good".What this means is that the opponent has some way, already 
+		/// found by the search, of avoiding this position, so you have to assume 
+		/// that they'll do this. If they can avoid this position, there is no longer
+		/// any need to search successors, since this position won't happen.
 		if (alpha >= beta)
 			return beta;
 		
 	}
 
-	/// Here update the best move at the root node. The score will 
-	/// be the returned alpha from the recursive function call.
+	// At root update the best move found of the child nodes.
 	if (dfr == 0)
 	{
 		//Mutex::Lock lock(counters_mutex);
 		best_move_info.best_move = vrtn->move;
 		best_move_info.score = alpha;
 	}
-		
+
 	return alpha;
 }
 

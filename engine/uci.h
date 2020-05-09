@@ -11,7 +11,7 @@
 #include <shared_mutex>
 #include <optional>
 
-#include "search.h"
+#include "thread.h"
 #include "utils.h"
 #include "utils/mutex.h"
 
@@ -68,7 +68,7 @@ namespace Medusa {
 		~EngineController() {
 			// Make sure search is destructed first, and it still may be running in
 			// a separate thread.
-			search_.reset();
+			thread_.reset();
 		}
 		// Blocks.
 		void EnsureReady();
@@ -92,7 +92,7 @@ namespace Medusa {
 		// Locked means that there is some work to wait before responding readyok.
 		RpSharedMutex busy_mutex_;
 		using SharedLock = std::shared_lock<RpSharedMutex>;
-		std::unique_ptr<Search> search_;
+		std::unique_ptr<Thread> thread_;
 		Position current_position_instance_;
 		optional<CurrentPosition> current_position_;
 		GoParams go_params_;
