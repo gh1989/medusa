@@ -127,6 +127,7 @@
     <ClInclude Include="board.h" />
     <ClInclude Include="evaluation.h" />
     <ClInclude Include="move.h" />
+    <ClInclude Include="moveiter.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="search.h" />
     <ClInclude Include="types.h" />
@@ -139,6 +140,7 @@
     <ClCompile Include="board.cpp" />
     <ClCompile Include="evaluation.cpp" />
     <ClCompile Include="medusa.cpp" />
+    <ClCompile Include="moveiter.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="search.cpp" />
     <ClCompile Include="types.cpp" />

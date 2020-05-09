@@ -134,64 +134,7 @@ namespace Medusa
 		std::atomic<bool> stop_{ false };
 		BestMoveInfo best_move_info;
 		PvInfo::Callback info_callback;
-};
-
-	const int CHCK_PRI = 1000.0;
-	const int CAPT_PRI = 10000.0;
-
-	class MoveSelector
-	{
-
-	public:
-		MoveSelector(Position &pos, bool include_quiet);
-		bool Any() const { return !moves.empty(); }
-		auto GetMoves() const { return moves; }
-		size_t NumMoves() const { return moves.size(); }
-		int SEE(Position &pos, Move move);
-
-	private:
-		std::multimap<int, Move> moves;
 	};
-	   
-	inline int MoveSelector::SEE(Position &pos, Move move)
-	{
-		int value = 0;
-
-		// Get smallest attacker capture
-		auto next_moves = pos.LegalMoves<Capture>();
-		auto remove_condition = [pos](Move m) { return !pos.MoveIsCapture(m); };
-		auto to_remove = std::remove_if(next_moves.begin(), next_moves.end(), remove_condition);
-		next_moves.erase(to_remove, next_moves.end());
-
-		bool capture_exists = next_moves.size();
-		if (!capture_exists)
-		{
-			return value;
-		}
-
-		// Get the smallest attacker
-		auto next_move = next_moves.back();
-		int smallest_attacker = 100000;
-		for (auto m : next_moves)
-		{
-			int attacker = Evaluation::piece_values.at( pos.GetAttacker(next_move) );
-			if (attacker <= smallest_attacker)
-			{
-				smallest_attacker = attacker;
-				next_move = m;
-			}
-		}
-
-		// === Apply ====
-		auto captured = pos.Captured(next_move);
-		pos.Apply(next_move);
-		int capture_value = Evaluation::piece_values.at(captured) - SEE(pos, next_move);
-		pos.Unapply(next_move);
-		// === unapply ====
-
-		value = capture_value > 0 ? capture_value : 0;
-		return value;
-	}
 }
 
 #endif

@@ -4,6 +4,7 @@
 
 #include "search.h"
 #include "move.h"
+#include "moveiter.h"
 
 #include "utils/logging.h"
 
@@ -13,10 +14,13 @@ bool Search::searching_flag = true;
 
 size_t Search::Perft(Position &position, size_t max_depth)
 {
+	/// Counts the number of nodes, currently turned off, it probably 
+	/// will only work well if we have a hash table of positions otherwise
+	/// it greedily recounts all of the legal moves which takes up too much
+	/// resource.
 	return 0;
 	if (max_depth == 0)
 		return 1;
-
 	size_t nodes = 0;
 	auto pseudo_legals = position.PseudoLegalMoves<Any>();
 	for (auto m : pseudo_legals)
@@ -26,103 +30,44 @@ size_t Search::Perft(Position &position, size_t max_depth)
 			nodes += Perft(position, max_depth - 1);
 		position.Unapply(m);
 	}
-
 	return nodes;
 }
 
 void Search::Start(const Position &pos, int max_depth)
 {
-	threads.emplace_back([this, pos, max_depth]() {
+	/// Start the thread. At the moment this is kind of trivial.
+	/// The thread cannot exit mid search right now.
+	auto _searching_lambda = [this, pos, max_depth](){
 		auto cpos = pos;
 		SearchRoot(cpos, max_depth);
-	});
-}
-
-std::shared_ptr<Variation> Search::SearchRoot(Position &pos, int max_depth)
-{
-	std::shared_ptr<Variation> md(new Variation());
-	nodes_searched = 0;
-
-	// least to be expected: mated in one
-	Score alpha = -Score::Infinite();
-
-	// most which can be achieved: to mate in one
-	Score beta  = Score::Infinite();
-
-	md = std::shared_ptr<Variation>(new Variation());
-	auto currentScore = this->_Search(pos, md, alpha, beta, max_depth);
-	PositionHistory::Clear();
-	return md;
-}
-
-Score Search::_Search(
-	Position &pos,
-	std::shared_ptr<Variation> md,
-	Score alpha,
-	Score beta,
-	int max_depth)
-{
-	Score score;
-	if (pos.ToMove().IsBlack())
-		score = -QSearch(pos, -beta, -alpha, md, 0);
-	else
-		score = QSearch(pos, alpha, beta, md, 0);
-	return score;
-}
-
-MoveSelector::MoveSelector(Position& position, bool include_quiet)
-{
-	Position pos = position;
-	auto unordered_moves = pos.LegalMoves<Medusa::Any>();
-	auto colour = position.ToMove();
-
-	int i = 0;
-
-	// What the player is forked, or checked as part of a combination. The escape is not going to be 
-	// a non-quiet move necessary, e.g. a block or a king move, but it can still be part of a forced
-	// combo. (*) ...
-	// Unfortunately this causes problems with the search.
-	//auto was_in_check = position.IsInCheck();
-
-	for (auto &move : unordered_moves)
-	{
-		auto pc = position.GetAttacker(move);
-		auto from_square = GetFrom(move);
-		int promise = PAWN - pc;
-		bool is_capture = position.MoveIsCapture(move);
-		position.Apply(move);
-		bool is_check = position.IsInCheck();
-
-		if (!include_quiet && !(is_check || is_capture)  /*&& !was_in_check*/)
-		{
-			position.Unapply(move);
-			continue;
-		}
-
-		// (*) ... this seems to be a temporary fix. Prevents pointless perpetuals
-		if (is_capture)
-			promise += 1000;
-
-		if (is_check)
-		{
-			if (!position.AnyLegalMove())
-			{
-				position.Unapply(move);
-				moves.clear();
-				moves.insert({ 0, move });
-				break;
-			}
-			else
-				promise += 200;
-		}
-
-		// Needs to be a good reason to move a piece twice.
-		if (position.LastMoved(pc, from_square))
-			promise -= 20;
-
-		position.Unapply(move);
-		moves.insert({ -promise, move });
 	};
+	threads.emplace_back(_searching_lambda);
+}
+
+std::shared_ptr<Variation> Search::SearchRoot(Position &position_, int max_depth)
+{
+	std::shared_ptr<Variation> vrtn(new Variation());
+
+	/// Start the search with alpha and beta at maximum bounds
+	/// +/- infinite, which is higher scoring than mate in one,
+	/// in case there is a mate in one at depth 0.
+	auto alpha = -Score::Infinite();
+	auto beta = Score::Infinite();
+
+	/// Every level of the search is a maximizer of the score,
+	/// which means that the logic is essentially that of scoring
+	/// in favour of the white pieces. So negate the search root 
+	/// node for the black pieces if they are the root.
+	if (position_.ToMove().IsBlack()) {
+		-QSearch(position_, -beta, -alpha, vrtn, 0);
+	}
+	else {
+		QSearch(position_, alpha, beta, vrtn, 0);
+	}
+
+	// Need to clear the position history, used for 3 move repetition.
+	PositionHistory::Clear();
+	return vrtn;
 }
 
 Score Evaluate(Position &position, int dfr)
