@@ -12,51 +12,54 @@ namespace Medusa
 		template<EvalColour C>
 		int CalcPositionalScore(Position &p)
 		{
-			/// King constants
-			const int __king_1 = 20;
-			const int __king_2 = 30;
-			const int __king_3 = 40;
-			/// Minor pieces
-			const int __minor_1 = 5;
-			const int __minor_2 = 6;
-			const int __minor_3 = 7;
-			/// Pawns
-			const int __pawn_1 = 15;
-			const int __pawn_2 = 18;
-			const int __pawn_3 = 20;
-			/// Rooks
-			const int __rook_1 = 45;
-			const int __rook_2 = 90;
+			/// constants
+			const int _ckctr = 20;
+			const int _ckrim = 30;
+			const int _ckatt = 30;
+			const int _ckdef = 30;
+			const int _cnrim = 5;
+			const int _cnund = 6;
+			const int _cbinf = 3;
+			const int _cnctl = 7;
+			const int _cpctl = 15;
+			const int _cpund = 18;
+			const int _cpdbl = 20;
+			const int _cpadv = 45;
+			const int _cropn = 90;
+			const int _crdbl = 90;
+
 			/// Our pieces
-			auto king = p.PieceBoard(C, KING);
-			auto pawns = p.PieceBoard(C, PAWN);
-			auto knights = p.PieceBoard(C, KNIGHT);
-			auto bishops = p.PieceBoard(C, BISHOP);
-			auto rooks = p.PieceBoard(C, ROOK);
+			auto kng = p.PieceBoard(C, KING);
+			auto pwn = p.PieceBoard(C, PAWN);
+			auto knt = p.PieceBoard(C, KNIGHT);
+			auto bsh = p.PieceBoard(C, BISHOP);
+			auto rks = p.PieceBoard(C, ROOK);
 			/// Colours
-			auto us = Get<C>();
-			auto them = ~us;
+			auto ours = Get<C>();
+			auto them = ~ours;
 			/// Their pieces
 			auto theirpawns = p.PieceBoard(them, PAWN);
 			auto theirknights = p.PieceBoard(them, KNIGHT);
 			/// Occupants
-			auto occupancy = p.Occupants();
-			auto occus = p.Occupants(us);
-			auto occthem = p.Occupants(them);
+			auto occupancy	= p.Occupants();
+			auto occus		= p.Occupants(ours);
+			auto occthem	= p.Occupants(them);
 			/// score
 			int score = 0;
+
 			/// Get the phase of the game.
 			/// Simple rule, if less than 8 pieces then endgame, if 6 unmoved pawns and
 			/// a single undeveloped piece then opening or if 2 or more undeveloped pieces,
 			/// also opening. Otherwise endgame.
-			int number_pieces = occupancy.PopCnt();
-			auto pawn_rank_idx = C == White ? 1 : 6;
-			auto pawn_rank_bb = ranks[pawn_rank_idx];
-			auto unmoved = (pawns & pawn_rank_bb).PopCnt();
-			auto back_rank_idx = C == White ? 0 : 7;
-			auto back_rank_bb = ranks[back_rank_idx];
-			auto undeveloped = ((bishops | knights) & back_rank_bb).PopCnt();
-			auto developed = (knights | bishops).PopCnt() - undeveloped;
+			int number_pieces		= occupancy.PopCnt();
+			auto pawn_rank_idx		= C == White ? 1 : 6;
+			auto pawn_rank_bb		= ranks[pawn_rank_idx];
+			auto unmoved			= (pwn & pawn_rank_bb).PopCnt();
+			auto back_rank_idx		= C == White ? 0 : 7;
+			auto back_rank_bb		= ranks[back_rank_idx];
+			auto undeveloped		= ((bsh | knt) & back_rank_bb).PopCnt();
+			auto developed			= (bsh | knt).PopCnt() - undeveloped;
+
 			auto phase = Middlegame;
 			if (number_pieces <= 8)
 				phase = Endgame;
@@ -66,51 +69,47 @@ namespace Medusa
 				phase = Opening;
 
 			/// In the opening, the king should be out of the centre
-			int king_on_rim = (king & BB_RIM).PopCnt();
+			int nkrim = (kng & BB_RIM).PopCnt();
 			if (phase != Endgame)
 			{
-				int king_in_centre = (king & BB_CTR).PopCnt();
-
-				// King in the centre penalty during the opening.
-				score -= __king_1 * king_in_centre;
-				score += __king_1 * king_on_rim;
-
+				int nkctr = (kng & BB_CTR).PopCnt();
+				score -= _ckctr * nkctr;
+				score += _ckrim * nkrim;
 				// Squares around the king are attacked? 
-				auto kingsqr = BbSqr(king);
-				auto around = neighbours[kingsqr];
-				auto them = ~Get<C>();
-				for (auto it = around.begin(); it != around.end(); it.operator++())
+				auto ksqr = BbSqr(kng);
+				auto knbr = neighbours[ksqr];
+				for (auto it = knbr.begin(); it != knbr.end(); it.operator++())
 				{
-					Square sqr = Square(*it);
-					auto bb = SqrBb(sqr);
-					score -= __king_1 * p.IsSquareAttacked(sqr, them);
-					score += __king_2 * (bb & pawns).PopCnt();
+					auto _sqr = Square(*it);
+					auto _bb = SqrBb(_sqr);
+					score -= _ckatt * p.IsSquareAttacked(_sqr, them);
+					score += _ckdef * (_bb & pwn).PopCnt();
 				}
 			}
 			if (phase == Endgame)
-				score -= __king_3 * king_on_rim;
+				score -= _ckrim * nkrim;
 
-			score -= __minor_1 * undeveloped;
+			score -= _cnund * undeveloped;
 
 			// A knight on the rim is dim.
-			Bitboard knights_on_rim = knights & BB_RIM;
-			score -= __minor_1 * knights_on_rim.PopCnt();
+			Bitboard _nrim = knt & BB_RIM;
+			score -= _cnrim * _nrim.PopCnt();
 
 			// Bishops on long diagonals bonus (TODO: if they can be
 			// kicked or blocked?)
-			for (auto it = bishops.begin(); it != bishops.end(); it.operator++())
+			for (auto it = bsh.begin(); it != bsh.end(); it.operator++())
 			{
 				auto sqr = Square(*it);
-				auto bishop_influence = DirectionAttacks(occupancy, sqr, bishop_directions);
-				score += __minor_2 * (bishop_influence & (~BB_CTR_SQR)).PopCnt();
-				score += __minor_2 * (bishop_influence & (BB_CTR_SQR)).PopCnt();
+				auto _binf = DirectionAttacks(occupancy, sqr, bishop_directions);
+				score += _cbinf * (_binf & (~BB_CTR_SQR)).PopCnt();
+				score += _cbinf * (_binf & (BB_CTR_SQR)).PopCnt();
 			}
 
 			// Knight on advanced outpost unable to be moved since
 			// no pawns in the neighbouring files can move towards.
 			// Opposite knight not currently attacking the square.
-			auto knightsctr = knights & BB_CTR_SQR;
-			for (auto it = knightsctr.begin(); it != knightsctr.end(); it.operator++())
+			auto kntctr = knt & BB_CTR_SQR;
+			for (auto it = kntctr.begin(); it != kntctr.end(); it.operator++())
 			{
 				auto sqridx = *it;
 				auto sqr = Square(sqridx);
@@ -129,19 +128,19 @@ namespace Medusa
 
 				// No knight attacking the square and no pawns can kick.
 				if (!(knight_attacks[sqr] & theirknights) && no_pawns)
-					score += __minor_3;
+					score += _cnctl;
 			}
 
 			if (phase != Endgame)
 			{
 				// pawn structure: unmoved pawns
-				score -= __pawn_1 * unmoved;
+				score -= _cpund * unmoved;
 
 				// control the centre
-				score += __pawn_1 * (BB_CTR_SQR & pawns).PopCnt();
+				score += _cpctl * (BB_CTR_SQR & pwn).PopCnt();
 			}
 
-			for (auto it = pawns.begin(); it != pawns.end(); it.operator++())
+			for (auto it = pwn.begin(); it != pwn.end(); it.operator++())
 			{
 				auto sqr = Square(*it);
 				auto pwnbb = SqrBb(sqr);
@@ -150,22 +149,22 @@ namespace Medusa
 				auto filebb = files[file];
 
 				// pawn structure: doubled pawns
-				score -= __pawn_2 * (pawns & filebb & (~pwnbb)).PopCnt();
+				score -= _cpdbl * (pwn & filebb & (~pwnbb)).PopCnt();
 
 				// Advanced pawns
 				if (phase == Endgame)
 				{
 					// Rank goes from 0 to 7, make it symmetric
 					int m = (C == White) ? 1 : -1;
-					score += m * (rank - 3) * __pawn_3;
+					score += m * (rank - 3) * _cpadv;
 				}
 			}
 
 			/// Rook coordination
-			auto usnorooks = occus & ~(rooks);
+			auto usnorooks = occus & ~(rks);
 
 			/// Rook on open files / doubled
-			for (auto it = rooks.begin(); it != rooks.end(); it.operator++())
+			for (auto it = rks.begin(); it != rks.end(); it.operator++())
 			{
 				auto sqr = *it;
 				auto rbb = SqrBb(Square(sqr));
@@ -173,9 +172,9 @@ namespace Medusa
 				auto fbb = files[fidx];
 				if (!(usnorooks & occus & fbb))
 				{
-					score += __rook_1;
+					score += _cropn;
 					if (!(occthem & fbb))
-						score += __rook_2;
+						score += _crdbl;
 				}
 			}
 

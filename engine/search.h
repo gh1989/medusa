@@ -107,20 +107,19 @@ namespace Medusa
 			Score beta,
 			int max_depth);
 
-		Score _Search(
-			Position &pos,
-			std::shared_ptr<Variation> move_deque,
+		Score QSearch(
+			Position &position,
 			Score alpha,
 			Score beta,
-			int max_depth,
-			size_t plies_from_root);
+			std::shared_ptr<Variation> vrtn,
+			int dfr);
+
 	private:
 
 
 		static size_t Perft(Position &position, size_t depth);
 		static bool searching_flag;
 		std::shared_ptr<Variation> principal_variation;
-		size_t hard_max;
 		std::thread thread;
 		size_t nodes_searched;
 		std::chrono::system_clock::time_point search_start_time;

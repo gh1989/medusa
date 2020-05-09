@@ -44,10 +44,10 @@ std::shared_ptr<Variation> Search::SearchRoot(Position &pos, int max_depth)
 	nodes_searched = 0;
 
 	// least to be expected: mated in one
-	Score alpha = Score::Checkmate(-1);
+	Score alpha = -Score::Infinite();
 
 	// most which can be achieved: to mate in one
-	Score beta  = Score::Checkmate(1);
+	Score beta  = Score::Infinite();
 
 	md = std::shared_ptr<Variation>(new Variation());
 	auto currentScore = this->_Search(pos, md, alpha, beta, max_depth);
@@ -64,160 +64,15 @@ Score Search::_Search(
 {
 	Score score;
 	if (pos.ToMove().IsBlack())
-		score = -this->_Search(pos, md, -beta, -alpha, max_depth, 0);
+		score = -QSearch(pos, -beta, -alpha, md, 0);
 	else
-		score = this->_Search(pos, md, alpha, beta, max_depth, 0);
+		score = QSearch(pos, alpha, beta, md, 0);
 	return score;
-}
-
-Score Search::_Search(
-	Position &pos,
-	std::shared_ptr<Variation> moves_all,
-	Score alpha,
-	Score beta,
-	int max_depth,
-	size_t plies_from_root)
-{
-	/*
-	if (max_depth < -60)
-		throw;
-	auto now = std::chrono::system_clock::now();
-	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - search_start_time);
-	if (elapsed.count() >= search_time_limit)
-		searching_flag = false;
-	if (!searching_flag)
-		return alpha;
-	*/
-
-	bool qsearch = max_depth <= 0;
-	MoveSelector move_selector(pos, !qsearch);
-	
-	if (qsearch)
-	{
-		// Maximizer score.
-		int centipawns = Evaluation::StaticScore(pos);
-		if (pos.ToMove().IsBlack())
-			centipawns *= -1;
-
-		auto stand_pat = Score::Centipawns(centipawns, plies_from_root);
-
-		if (stand_pat >= beta)
-			return stand_pat;
-
-		if (alpha < stand_pat)
-			alpha = stand_pat;
-	}
-
-	// Draw
-	if (pos.GetFiftyCounter() > 49 || pos.ThreeMoveRepetition())
-		return Score::Centipawns(0, plies_from_root);
-
-	if (!move_selector.Any())
-	{
-		// Checkmate?
-		if (pos.IsCheckmate())
-		{
-			int mate_in = plies_from_root;
-			if (pos.ToMove().IsBlack()) // White's turn and mated, so black mate in one.
-				mate_in *= -1;
-			return Score::Checkmate(mate_in);
-		}
-
-		// Draw?
-		bool search_all = max_depth > 0;
-		if (!pos.IsInCheck() && search_all)
-			return Score::Centipawns(0, plies_from_root);
-
-		// Position evaluation to be maximized or minimized. If we are black and the
-		// static score of the position of the node is very negative, that is a high
-		// score for the node, * -1...
-		double centipawns = Evaluation::StaticScore(pos);
-		if (pos.ToMove().IsBlack())
-			centipawns *= -1;
-
-		return Score::Centipawns(centipawns, plies_from_root);
-	}
-	// Lowest possible score from the view of the maximiser.
-	Score score;
-	std::vector<PvInfo> infos;
-	auto moves = move_selector.GetMoves();
-	nodes_searched += moves.size();
-
-	Score value = -Score::Infinite();
-	for (auto pair : moves)
-	{
-		//if (!searching_flag)
-		//	break;
-		auto move = pair.second;
-
-		int __dbg = false;
-		if (move == CreateMove(e5, c6))
-			int __dbg = true;
-		
-		// --- apply ---
-		pos.Apply(move);
-		std::shared_ptr<Variation> moves_after(new Variation());
-		score = -this->_Search(
-			pos, moves_after, -beta, -alpha, max_depth - 1, plies_from_root + 1);
-		// --- unapply ---
-		pos.Unapply(move);
-
-		// Update this node value
-		if ( score > value)
-		{		
-			value = score;
-		}
-
-		// Update alpha
-		if (score > alpha)
-		{
-			alpha = score;
-			Join(moves_all, moves_after, move);
-			//PrintLine(moves_all);
-
-			// Update the PV info each time this happens.
-			PvInfo pv_info;
-			pv_info.depth = max_depth;
-			pv_info.score = score;
-			pv_info.pv = moves_all;
-			pv_info.nodes = nodes_searched;
-			infos.push_back(pv_info);
-		}
-
-		// Cut off
-		if (alpha >= beta)
-			break;
-
-		if (qsearch && (score >= beta))
-			return beta;
-	}
-
-
-	// Update best move if we made it back to root in time...  //	if (searching_flag)
-	if (plies_from_root == 0)
-	{
-		Mutex::Lock lock(counters_mutex);
-		best_move_info.best_move = moves_all->move;
-		best_move_info.score = value; // Which will be alpha
-		best_move_info.depth = max_depth;
-#ifndef _DEBUG
-		info_callback(infos);
-#endif // !DEBUG_
-
-	}
-
-	return alpha;
 }
 
 MoveSelector::MoveSelector(Position& position, bool include_quiet)
 {
 	Position pos = position;
-
-	if (pos.GetPlies() == 2)
-	{
-		int j = 0;
-	}
-
 	auto unordered_moves = pos.LegalMoves<Medusa::Any>();
 	auto colour = position.ToMove();
 
@@ -258,15 +113,142 @@ MoveSelector::MoveSelector(Position& position, bool include_quiet)
 				break;
 			}
 			else
-				promise += 100;
+				promise += 200;
 		}
 
 		// Needs to be a good reason to move a piece twice.
-		if (position.LastMoved( pc, from_square) )
+		if (position.LastMoved(pc, from_square))
 			promise -= 20;
 
 		position.Unapply(move);
 		moves.insert({ -promise, move });
 	};
 }
+
+Score Evaluate(Position &position, int dfr)
+{
+	/// Take the centipawn positional evaluation and
+	/// negate it if it's blacks turn because the score
+	/// is always from the view of white pieces but the
+	/// recursive algorithm treats the current maximizer
+	/// as the white pieces.
+	auto cp = Evaluation::StaticScore(position);
+	if (position.ToMove().IsBlack())
+		cp *= -1;
+	auto stateval = Score::Centipawns(cp, dfr);
+	
+	/// If there are no legal moves it is either checkmate
+	/// or it is stalemate. Since we are the maximizer right now
+	/// and in checkmate, it will seem as though we are in 
+	/// checkmate position from black pieces, so always have
+	/// checkmate in -dfr.
+	if (!position.AnyLegalMove())
+	{
+		if (position.IsInCheck())
+			stateval = -Score::Checkmate(dfr);
+		else
+			stateval = Score::Centipawns(0, dfr);
+	}
+
+	/// Include the 50 move rule and three move repetition here
+	/// as it is done at the beginning of every node and will 
+	/// accordingly update alpha.
+	//	TOOD: This does not currently work actually,
+	//	three repetition is defective.
+	if (position.GetFiftyCounter() >= 50 || position.ThreeMoveRepetition())
+		stateval = Score::Centipawns(0, dfr);
+
+	return stateval;
+}
+
+Score Search::QSearch(
+	Position &position, 
+	Score alpha, 
+	Score beta, 
+	std::shared_ptr<Variation> vrtn, 
+	int dfr)
+{
+	/// Take the current score of the position for standing pat. We do not 
+	/// take pieces unfavourably. The score is cp, if this is greater than
+	/// beta then the move which has just been applied gives us greater  
+	/// than what we know we can have, thefore opponent will not play it. 
+	/// If the cp is greater than alpha then we increase the minimum which 
+	/// can be expected.
+	if (dfr > 0)
+	{
+		auto spat = Evaluate(position, dfr);
+		if (spat >= beta)
+			return spat;
+		if (alpha < spat)
+			alpha = spat;
+	}
+
+	/// If the current alpha is checkmate then it must have 
+	/// been updated by the static evaluation of the position 
+	/// used for standing pat and to detect draws or checkmates. 
+	/// So here we return alpha. Current context is checkmated, 
+	/// it gets negated to the parent maximizer.
+	if (alpha.IsMate())
+		return alpha;
+
+	/// Iterate through moves which are included in 
+	/// qsearch. This will be evades from checks, checks 
+	/// themselves and captures, think about including types 
+	/// of attacks too.
+
+	/*
+	// Not yet implemented, just use the move selector for now.
+	auto moveIterator = position.MoveIterator( CAPTURES | EVADES | CHECKS ); 
+	// Not yet implemented, use move selector.
+	for (auto move = moveIterator.begin(); move != moveIterator.end(); ++move)
+	*/
+
+	MoveSelector msel(position, dfr == 0);
+	auto mvs = msel.GetMoves();	
+	for(auto mv : mvs)
+	{
+		/// Apply the move and then search all of the the new position
+		/// but this time maximize for the opposition. Do this by 
+		/// swapping the alpha to negative beta, beta to negative alpha 
+		/// and negating the whole result.
+		position.Apply(mv.second);
+		std::shared_ptr<Variation> vrtnMore(new Variation());
+		auto score = -QSearch( position, -beta, -alpha, vrtnMore, dfr+1);
+		position.Unapply(mv.second);
+
+		/// Update best score. Alpha is the beta of this branch, 
+		/// beta is the most possible to be scored, if we are
+		/// larger than beta then must return beta. If the beta score.
+		/// It has to be larger than or equal to alpha in updating because
+		/// the bounds are mate in one, and if there is a mate in one, 
+		/// we still need to the move to update.
+		if (score > alpha)
+		{
+			alpha = score;
+			Join(vrtn, vrtnMore, mv.second);
+		}
+
+		/// If alpha is larger than beta, then the least expected from
+		/// this branch is currently greater than the most we can expect.
+		/// this may not be possible if we start with infinite bounds
+		/// but when approximating alpha and beta in a search it can 
+		/// happen and should fail for a research.
+		if (alpha >= beta)
+			return beta;
+		
+	}
+
+	/// Here update the best move at the root node. The score will 
+	/// be the returned alpha from the recursive function call.
+	if (dfr == 0)
+	{
+		//Mutex::Lock lock(counters_mutex);
+		best_move_info.best_move = vrtn->move;
+		best_move_info.score = alpha;
+	}
+		
+	return alpha;
+}
+
+
 }

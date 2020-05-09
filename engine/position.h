@@ -480,7 +480,7 @@ namespace Medusa {
 			}
 
 			// Captures
-			if (pawn_attacks[sqr] & (bocc | enpassant))
+			if (pawn_attacks[sqr] & (bocc | context.enpassant))
 				for (int shft : {7, 9})
 				{
 					// You cannot capture off the side of the board.
@@ -492,7 +492,7 @@ namespace Medusa {
 
 					Bitboard capt_diag = square << shft;
 					Square to = Square(sqr + shft);
-					if (capt_diag & bocc)
+					if (capt_diag & (bocc | context.enpassant))
 					{
 						if (rank == 6) // 7th rank, promotion
 							for (auto& prom : promote_pieces)
@@ -500,7 +500,7 @@ namespace Medusa {
 						else
 						{
 							// Taking enpassant
-							if (pawn_attacks[sqr] & enpassant)
+							if (pawn_attacks[sqr] & context.enpassant)
 								moves->emplace_back(CreateEnPassant(sqr, to));
 							else
 								moves->emplace_back(CreateMove(sqr, to));

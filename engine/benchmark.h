@@ -10,7 +10,76 @@ namespace Medusa
 {
 	using namespace Evaluation;
 
-	void test_bizarre_knight_sac()
+	void test_enpassant()
+	{
+		auto pos = PositionFromFen("r2q3r/pp1nbkpp/2p1b3/5p2/P2Pp3/1PR5/1BP1BPPP/1N1Q1K1R b - d3 0 19");
+		pos = PositionFromFen("2rqk2r/1bnp1p2/1p3np1/p1pPp2p/2P1P3/P1PBBP2/4N1PP/1R1Q1RK1 w k e6 0 14");
+		std::vector<Move> *moves(new std::vector<Move>());
+		pos.LegalPawnMoves<Any>(pos.ToMove(), moves);
+		for (auto m : *moves)
+		{
+			std::cout << m << ": " << AsUci(m) << std::endl;
+		}
+		system("pause");
+	}
+
+	void test_qsearch()
+	{
+
+		// Mate in one for white
+		auto pos = PositionFromFen("rn1qkbnr/pppbpppp/8/8/2BP4/4pQ2/PPP2PPP/RNB1K1NR w KQkq - 0 5");
+		Search srch;
+		std::shared_ptr<Variation> moves_after(new Variation());
+		auto beta = Score::Checkmate(1);
+		auto alpha = Score::Checkmate(-1);
+		auto score1 = srch.QSearch(pos, alpha, beta, moves_after ,0 );
+		PrintLine(moves_after);
+
+		// Black should take the queen
+		pos = PositionFromFen("rn1qkbnr/pppbpppp/8/8/2BPp3/5Q2/PPP2PPP/RNB1K1NR b KQkq - 1 4");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = -srch.QSearch(pos, -beta, -alpha, moves_after, 0);
+		PrintLine(moves_after);
+
+		// Black should take the pawn
+		pos = PositionFromFen("rn1qkb1r/pbpppppp/1p3n2/8/2PPP3/5N2/PP3PPP/RNBQKB1R b KQkq - 0 4");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = -srch.QSearch(pos, -beta, -alpha, moves_after, 0);
+		PrintLine(moves_after);
+
+		// white should scewer (doesnt work)
+		pos = PositionFromFen("6q1/8/4k3/8/8/2Q5/8/1K6 w - - 0 1");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
+		PrintLine(moves_after);
+
+		// Take knight then the queen - is it that it thinks that it is able to refuse a move?
+		// doesn't show full variation because the king evades and this isnt in the search, include evades in qsearch
+		pos = PositionFromFen("8/k7/1n6/B2q4/8/1Q6/8/1K6 w - - 0 1");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
+		PrintLine(moves_after);
+
+		// Smothered mate... sceptical... no it isn't exh8 mate in one
+		pos = PositionFromFen("k6r/pp6/4N3/4Q3/8/8/8/1K6 w - - 0 1");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
+		PrintLine(moves_after);
+
+		// ok now smothered mate - this is empty... evade moves need to be loud moves.
+		pos = PositionFromFen("k5r1/pp6/4N3/4Q3/8/8/8/1K6 w - - 0 1");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
+		PrintLine(moves_after);
+
+		// What happens to qsearch if there are no pieces to take?
+		pos = PositionFromFen("");
+		moves_after = std::shared_ptr<Variation>(new Variation());
+		score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
+		PrintLine(moves_after);
+	}
+
+	void test_bizarre_k1night_sac()
 	{
 		auto pos = PositionFromFen("");
 		pos.PrettyPrint();
@@ -30,11 +99,11 @@ namespace Medusa
 		auto beta = Score::Checkmate(1);
 		auto alpha = Score::Checkmate(-1);
 		int max_depth = 3;
-		auto score = -srch._Search(pos, moves_after, -beta, -alpha, max_depth - 1, 0);
+		auto score = srch.QSearch(pos, alpha, beta, moves_after, 0);
 		
 		auto move = CreateMove(b4, c2); // Nxc2?
 		pos.Apply(move);
-		auto score1 = srch._Search(pos, moves_after, alpha, beta, max_depth - 2, 1);
+		auto score1 = srch.QSearch(pos, alpha, beta, moves_after, 0);
 	}
 
 	void test_evaluation()
